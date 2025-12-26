@@ -21,6 +21,7 @@ interface PaymentInfo {
   bank_name: string;
   account_number: string;
   ifsc_code: string;
+  account_holder_name: string;
 }
 
 interface SiteConfig {
@@ -58,6 +59,7 @@ const AdminSettings = () => {
     bank_name: "",
     account_number: "",
     ifsc_code: "",
+    account_holder_name: "",
   });
 
   const [siteConfig, setSiteConfig] = useState<SiteConfig>({
@@ -297,7 +299,16 @@ const AdminSettings = () => {
 
             <Separator />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="account_holder_name">Account Holder Name</Label>
+                <Input
+                  id="account_holder_name"
+                  placeholder="John Doe"
+                  value={paymentInfo.account_holder_name}
+                  onChange={(e) => setPaymentInfo({ ...paymentInfo, account_holder_name: e.target.value })}
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="bank_name">Bank Name</Label>
                 <Input
@@ -307,6 +318,9 @@ const AdminSettings = () => {
                   onChange={(e) => setPaymentInfo({ ...paymentInfo, bank_name: e.target.value })}
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="account_number">Account Number</Label>
                 <Input

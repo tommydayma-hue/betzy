@@ -1,20 +1,37 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowDownToLine, Upload, Copy, CheckCircle, Clock, XCircle, ImageIcon } from "lucide-react";
+import { 
+  Copy, CheckCircle, Clock, XCircle, ImageIcon, 
+  ArrowLeft, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { TransactionSuccess } from "@/components/ui/transaction-success";
+import { cn } from "@/lib/utils";
 
-const PAYMENT_DETAILS = {
-  upiId: "betzone@paytm",
-  accountName: "BetZone Payments",
-};
+interface PaymentInfo {
+  upi_id: string;
+  qr_code_url: string;
+  bank_name: string;
+  account_number: string;
+  ifsc_code: string;
+  account_holder_name?: string;
+  google_pay?: string;
+  phone_pay?: string;
+  paytm?: string;
+}
+
+const DEMO_SCREENSHOTS = [
+  "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=300&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=300&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1580048915913-4f8f5cb481c4?w=300&h=400&fit=crop",
+];
 
 const Deposit = () => {
   const navigate = useNavigate();
@@ -24,9 +41,19 @@ const Deposit = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recentDeposits, setRecentDeposits] = useState<any[]>([]);
-  const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successAmount, setSuccessAmount] = useState(0);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
+    upi_id: "",
+    qr_code_url: "",
+    bank_name: "",
+    account_number: "",
+    ifsc_code: "",
+    account_holder_name: "",
+  });
+  const [minDeposit, setMinDeposit] = useState(100);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -37,8 +64,32 @@ const Deposit = () => {
   useEffect(() => {
     if (user) {
       fetchRecentDeposits();
+      fetchPaymentSettings();
     }
   }, [user]);
+
+  const fetchPaymentSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("*")
+        .in("key", ["payment_info", "site_config"]);
+
+      if (!error && data) {
+        data.forEach((setting) => {
+          if (setting.key === "payment_info") {
+            setPaymentInfo(setting.value as unknown as PaymentInfo);
+          }
+          if (setting.key === "site_config") {
+            const config = setting.value as any;
+            if (config.min_deposit) setMinDeposit(config.min_deposit);
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching payment settings:", error);
+    }
+  };
 
   const fetchRecentDeposits = async () => {
     const { data, error } = await supabase
@@ -53,11 +104,12 @@ const Deposit = () => {
     }
   };
 
-  const handleCopyUPI = async () => {
-    await navigator.clipboard.writeText(PAYMENT_DETAILS.upiId);
-    setCopied(true);
-    toast.success("UPI ID copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async (text: string, field: string) => {
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    toast.success("Copied to clipboard");
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,8 +137,8 @@ const Deposit = () => {
     }
 
     const depositAmount = parseFloat(amount);
-    if (isNaN(depositAmount) || depositAmount < 100) {
-      toast.error("Minimum deposit amount is ₹100");
+    if (isNaN(depositAmount) || depositAmount < minDeposit) {
+      toast.error(`Minimum deposit amount is ₹${minDeposit}`);
       return;
     }
 
@@ -98,7 +150,6 @@ const Deposit = () => {
     setIsSubmitting(true);
 
     try {
-      // Upload screenshot
       const fileExt = screenshot.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
@@ -108,12 +159,10 @@ const Deposit = () => {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("deposit-screenshots")
         .getPublicUrl(fileName);
 
-      // Create transaction record with auto-approved status
       const { error: txError } = await supabase.from("transactions").insert({
         user_id: user.id,
         type: "deposit",
@@ -126,7 +175,6 @@ const Deposit = () => {
 
       if (txError) throw txError;
 
-      // Update wallet balance directly using the auto_approve_deposit function
       const { error: balanceError } = await (supabase.rpc as any)('auto_approve_deposit', {
         p_user_id: user.id,
         p_amount: depositAmount
@@ -134,7 +182,6 @@ const Deposit = () => {
 
       if (balanceError) throw balanceError;
 
-      // Show success animation
       setSuccessAmount(depositAmount);
       setShowSuccess(true);
       
@@ -158,27 +205,55 @@ const Deposit = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
-        return <CheckCircle className="h-4 w-4 text-success" />;
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
       case "pending":
-        return <Clock className="h-4 w-4 text-warning" />;
+        return <Clock className="h-4 w-4 text-yellow-600" />;
       case "failed":
       case "cancelled":
-        return <XCircle className="h-4 w-4 text-destructive" />;
+        return <XCircle className="h-4 w-4 text-red-600" />;
       default:
-        return <Clock className="h-4 w-4 text-muted-foreground" />;
+        return <Clock className="h-4 w-4 text-gray-500" />;
     }
+  };
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % DEMO_SCREENSHOTS.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + DEMO_SCREENSHOTS.length) % DEMO_SCREENSHOTS.length);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      <div className="min-h-screen bg-gradient-to-b from-sky-100 via-sky-50 to-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
       </div>
     );
   }
 
+  const PaymentDetailRow = ({ label, value, field }: { label: string; value: string; field: string }) => (
+    <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-blue-500" />
+        <span className="text-sm text-gray-700">{label}: <span className="font-medium text-gray-900">{value || "-"}</span></span>
+      </div>
+      <button
+        onClick={() => handleCopy(value, field)}
+        className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+        disabled={!value}
+      >
+        {copiedField === field ? (
+          <CheckCircle className="h-4 w-4 text-green-500" />
+        ) : (
+          <Copy className="h-4 w-4 text-gray-400" />
+        )}
+      </button>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-b from-sky-100 via-sky-50 to-white">
       <Header />
       
       <TransactionSuccess
@@ -187,167 +262,279 @@ const Deposit = () => {
         onComplete={handleSuccessComplete}
       />
 
-      <main className="pt-24 pb-12 px-4">
-        <div className="container mx-auto max-w-2xl">
-          {/* Background Effects */}
-          <div className="fixed top-1/3 left-1/4 w-72 h-72 bg-success/10 rounded-full blur-[120px] -z-10" />
-          <div className="fixed bottom-1/3 right-1/4 w-72 h-72 bg-primary/5 rounded-full blur-[100px] -z-10" />
+      <main className="pt-20 pb-12 px-4">
+        <div className="container mx-auto max-w-6xl">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">MAKE DEPOSIT</h1>
+            <p className="text-gray-600">
+              Experience the thrill of gaming with live stats and instant updates – your winning edge starts here!
+            </p>
+          </div>
 
-          <Card variant="neon" className="animate-scale-in mb-8">
-            <CardHeader className="text-center pb-2">
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-success to-success/60 flex items-center justify-center mx-auto mb-4 glow-success">
-                <ArrowDownToLine className="h-8 w-8 text-success-foreground" />
-              </div>
-              <CardTitle className="text-2xl">Deposit Funds</CardTitle>
-              <CardDescription>Add money to your wallet</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Payment Details */}
-              <div className="bg-accent/50 rounded-lg p-4 mb-6 border border-border">
-                <h3 className="font-semibold mb-3 text-sm">Payment Details</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">UPI ID</span>
-                    <div className="flex items-center gap-2">
-                      <code className="bg-background px-2 py-1 rounded text-sm font-mono">
-                        {PAYMENT_DETAILS.upiId}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={handleCopyUPI}
-                      >
-                        {copied ? (
-                          <CheckCircle className="h-4 w-4 text-success" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Account Name</span>
-                    <span className="text-sm font-medium">{PAYMENT_DETAILS.accountName}</span>
-                  </div>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Left Column - Process & Payment Details */}
+            <div className="space-y-6">
+              {/* Deposit Process Card */}
+              <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200 shadow-sm">
+                <CardContent className="p-5">
+                  <h3 className="text-lg font-bold text-red-500 mb-3">Deposit Process:</h3>
+                  <ol className="space-y-2 text-sm text-gray-700">
+                    <li className="flex gap-2">
+                      <span className="font-bold text-gray-800">1.</span>
+                      <span>Simply make your payment using the provided details and then take a quick screenshot of the transaction, ensuring the <strong>Unique Transaction Reference (UTR)</strong> number is clearly visible.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="font-bold text-gray-800">2.</span>
+                      <span>In case you encounter any issues, feel free to reach out to our helpful support team for further assistance.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="font-bold text-gray-800">3.</span>
+                      <span>Please ensure that your uploaded screenshot matches the examples provided.</span>
+                    </li>
+                  </ol>
+                </CardContent>
+              </Card>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount (₹)</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    min="100"
-                    step="1"
-                    placeholder="Enter amount (min ₹100)"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="screenshot">Payment Screenshot</Label>
-                  <div className="relative">
-                    {previewUrl ? (
-                      <div className="relative rounded-lg overflow-hidden border border-border">
-                        <img
-                          src={previewUrl}
-                          alt="Payment screenshot"
-                          className="w-full h-48 object-cover"
-                        />
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          className="absolute bottom-2 right-2"
-                          onClick={() => {
-                            setScreenshot(null);
-                            setPreviewUrl(null);
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    ) : (
-                      <label
-                        htmlFor="screenshot"
-                        className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors"
-                      >
-                        <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                        <span className="text-sm text-muted-foreground">
-                          Click to upload screenshot
-                        </span>
-                        <span className="text-xs text-muted-foreground mt-1">
-                          Max 5MB, JPG/PNG
-                        </span>
-                      </label>
-                    )}
-                    <input
-                      id="screenshot"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleFileChange}
+              {/* Payment Details Card */}
+              <Card className="bg-white shadow-sm border-gray-200">
+                <CardContent className="p-5">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">Payment Details:</h3>
+                  <div className="space-y-1">
+                    <PaymentDetailRow 
+                      label="Name" 
+                      value={paymentInfo.account_holder_name || "Inspiro Bet"} 
+                      field="name" 
+                    />
+                    <PaymentDetailRow 
+                      label="UPI ID" 
+                      value={paymentInfo.upi_id} 
+                      field="upi" 
+                    />
+                    <PaymentDetailRow 
+                      label="A/C no" 
+                      value={paymentInfo.account_number} 
+                      field="account" 
+                    />
+                    <PaymentDetailRow 
+                      label="IFSC code" 
+                      value={paymentInfo.ifsc_code} 
+                      field="ifsc" 
+                    />
+                    <PaymentDetailRow 
+                      label="Bank Name" 
+                      value={paymentInfo.bank_name} 
+                      field="bank" 
                     />
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+            </div>
 
-                <Button
-                  type="submit"
-                  variant="neon"
-                  className="w-full gap-2"
-                  size="lg"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <span className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                      Submitting...
-                    </span>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4" />
-                      Submit Deposit Request
-                    </>
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+            {/* Right Column - Demo Screenshots & Form */}
+            <div className="space-y-6">
+              {/* Demo Screenshots */}
+              <Card className="bg-white shadow-sm border-gray-200">
+                <CardContent className="p-5">
+                  <h3 className="text-lg font-bold text-red-500 text-center mb-4">Demo Screenshot</h3>
+                  <div className="relative">
+                    <div className="flex items-center justify-center gap-4">
+                      <button
+                        onClick={prevSlide}
+                        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                      >
+                        <ChevronLeft className="h-5 w-5 text-gray-600" />
+                      </button>
+                      <div className="flex gap-3 overflow-hidden">
+                        {DEMO_SCREENSHOTS.map((src, idx) => (
+                          <div
+                            key={idx}
+                            className={cn(
+                              "w-24 h-32 rounded-lg overflow-hidden border-2 transition-all duration-300",
+                              idx === currentSlide ? "border-blue-500 scale-105" : "border-gray-200 opacity-60"
+                            )}
+                          >
+                            <img 
+                              src={src} 
+                              alt={`Demo ${idx + 1}`} 
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={nextSlide}
+                        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                      >
+                        <ChevronRight className="h-5 w-5 text-gray-600" />
+                      </button>
+                    </div>
+                    <div className="flex justify-center gap-2 mt-3">
+                      {DEMO_SCREENSHOTS.map((_, idx) => (
+                        <div
+                          key={idx}
+                          className={cn(
+                            "w-2 h-2 rounded-full transition-colors",
+                            idx === currentSlide ? "bg-blue-500" : "bg-gray-300"
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Deposit Form */}
+                  <div className="mt-6">
+                    <h4 className="font-semibold text-gray-800 mb-3">Deposit Information:</h4>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <div>
+                        <Input
+                          type="number"
+                          min={minDeposit}
+                          placeholder={`Enter amount (min ₹${minDeposit})`}
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          className="h-11 border-gray-300 bg-gray-50"
+                          required
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <label
+                          htmlFor="screenshot-upload"
+                          className="flex-1 flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                        >
+                          <span className="text-sm text-gray-600">
+                            {screenshot ? screenshot.name : "Choose File"}
+                          </span>
+                        </label>
+                        <input
+                          id="screenshot-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleFileChange}
+                        />
+                        <span className="text-sm text-gray-500">Upload Image</span>
+                      </div>
+
+                      {previewUrl && (
+                        <div className="relative rounded-lg overflow-hidden border border-gray-200">
+                          <img
+                            src={previewUrl}
+                            alt="Preview"
+                            className="w-full h-32 object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setScreenshot(null);
+                              setPreviewUrl(null);
+                            }}
+                            className="absolute top-2 right-2 px-2 py-1 bg-red-500 text-white text-xs rounded"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="flex gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => navigate(-1)}
+                          className="flex-1 border-gray-800 text-gray-800 hover:bg-gray-100"
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className="flex-1 bg-gray-800 hover:bg-gray-900 text-white"
+                        >
+                          {isSubmitting ? "Submitting..." : "Submit"}
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Warning Note */}
+          <div className="text-center mb-8">
+            <p className="text-red-500 font-medium flex items-center justify-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              NOTE: IF PAYMENT DETAILS NOT WORKING, THEN REFRESH THE PAGE.
+              <RefreshCw className="h-4 w-4" />
+            </p>
+          </div>
+
+          {/* QR Code Section */}
+          <div className="bg-gradient-to-r from-cyan-100 via-sky-100 to-cyan-100 rounded-2xl p-8 mb-8">
+            <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
+              {/* QR Code */}
+              <div className="bg-white p-4 rounded-xl shadow-md">
+                {paymentInfo.qr_code_url ? (
+                  <img
+                    src={paymentInfo.qr_code_url}
+                    alt="Payment QR Code"
+                    className="w-48 h-48 object-contain"
+                  />
+                ) : (
+                  <div className="w-48 h-48 bg-gray-100 flex items-center justify-center rounded-lg">
+                    <div className="text-center text-gray-400">
+                      <ImageIcon className="h-12 w-12 mx-auto mb-2" />
+                      <span className="text-sm">QR Code</span>
+                    </div>
+                  </div>
+                )}
+                <div className="text-center mt-2">
+                  <p className="text-xs text-gray-500">Scan & Pay</p>
+                  <p className="text-xs font-semibold text-gray-700">UPI / BHIM</p>
+                </div>
+              </div>
+
+              {/* Decorative Image */}
+              <div className="hidden lg:block">
+                <div className="relative">
+                  <div className="w-64 h-48 bg-gradient-to-br from-yellow-200 to-yellow-400 rounded-2xl flex items-center justify-center">
+                    <span className="text-6xl">💰</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Recent Deposits */}
           {recentDeposits.length > 0 && (
-            <Card variant="default" className="animate-fade-in">
-              <CardHeader>
-                <CardTitle className="text-lg">Recent Deposits</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Card className="bg-white shadow-sm border-gray-200">
+              <CardContent className="p-5">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">Recent Deposits</h3>
                 <div className="space-y-3">
                   {recentDeposits.map((deposit) => (
                     <div
                       key={deposit.id}
-                      className="flex items-center justify-between p-3 bg-accent/30 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                     >
                       <div className="flex items-center gap-3">
                         {getStatusIcon(deposit.status)}
                         <div>
-                          <p className="font-medium">₹{deposit.amount}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="font-medium text-gray-800">₹{deposit.amount}</p>
+                          <p className="text-xs text-gray-500">
                             {new Date(deposit.created_at).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
                       <span
-                        className={`text-xs font-medium px-2 py-1 rounded capitalize ${
+                        className={cn(
+                          "text-xs font-medium px-2 py-1 rounded capitalize",
                           deposit.status === "completed"
-                            ? "bg-success/20 text-success"
+                            ? "bg-green-100 text-green-700"
                             : deposit.status === "pending"
-                            ? "bg-warning/20 text-warning"
-                            : "bg-destructive/20 text-destructive"
-                        }`}
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-red-100 text-red-700"
+                        )}
                       >
                         {deposit.status}
                       </span>
@@ -357,6 +544,13 @@ const Deposit = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Disclaimer */}
+          <div className="mt-8 text-center text-sm text-gray-500 space-y-1">
+            <p>⚠️ Always verify the payment details before making a transaction.</p>
+            <p>📞 For any issues, contact our 24/7 support team.</p>
+            <p>🔒 All transactions are secure and encrypted.</p>
+          </div>
         </div>
       </main>
     </div>
