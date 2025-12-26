@@ -61,7 +61,7 @@ const Register = () => {
       return;
     }
     
-    toast.success("Account created successfully! Welcome to Betzy.");
+    toast.success("Account created successfully! Welcome to Royall11.");
     navigate("/dashboard");
     setIsLoading(false);
   };
@@ -87,7 +87,7 @@ const Register = () => {
                 <User className="h-8 w-8 text-white" />
               </div>
               <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
-              <p className="text-gray-500 mt-1">Join Betzy and start winning today</p>
+              <p className="text-gray-500 mt-1">Join Royall11 and start winning today</p>
             </div>
 
             {/* Form */}

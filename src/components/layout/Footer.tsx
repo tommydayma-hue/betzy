@@ -9,9 +9,9 @@ export const Footer = () => {
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-                <span className="font-bold text-lg text-white">B</span>
+                <span className="font-bold text-lg text-white">R</span>
               </div>
-              <span className="font-bold text-xl tracking-tight text-gray-900">BETZY</span>
+              <span className="font-bold text-xl tracking-tight text-gray-900">ROYALL11</span>
             </Link>
             <p className="text-sm text-gray-500">
               The ultimate prediction gaming platform. 
@@ -83,7 +83,7 @@ export const Footer = () => {
 
         <div className="border-t border-gray-200 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-gray-500">
-            © 2024 Betzy. All rights reserved.
+            © 2024 Royall11. All rights reserved.
           </p>
           <p className="text-xs text-gray-400">
             18+ Only. Play Responsibly. Gambling can be addictive.

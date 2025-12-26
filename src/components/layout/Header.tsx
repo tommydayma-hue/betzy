@@ -48,7 +48,7 @@ export const Header = () => {
               <span className="font-bold text-lg text-white">B</span>
             </div>
             <span className="font-bold text-xl tracking-tight text-gray-900 hidden sm:block">
-              BETZY
+              ROYALL11
             </span>
           </Link>
 

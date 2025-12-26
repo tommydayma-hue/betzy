@@ -5,7 +5,7 @@ const testimonials = [
   {
     name: "Rahul S.",
     role: "Pro Bettor",
-    content: "Betzy has completely changed how I bet. The instant payouts and live odds are incredible. Won ₹50k last month!",
+    content: "Royall11 has completely changed how I bet. The instant payouts and live odds are incredible. Won ₹50k last month!",
     rating: 5,
     avatar: "RS",
   },
@@ -60,7 +60,7 @@ export const TestimonialsSection = () => {
             What Our <span className="bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">Winners</span> Say
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Join thousands of satisfied bettors who trust Betzy
+            Join thousands of satisfied bettors who trust Royall11
           </p>
         </motion.div>
 

@@ -68,7 +68,7 @@ export const FeaturesSection = () => {
           transition={{ duration: 0.6 }}
         >
           <h2 className="font-display text-3xl md:text-4xl font-bold tracking-wide mb-4">
-            Why Choose <span className="bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">Betzy</span>
+            Why Choose <span className="bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">Royall11</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Experience the most advanced betting platform with features designed for winners
