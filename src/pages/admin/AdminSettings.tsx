@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { 
   CreditCard, Bell, Globe, Loader2, Save, Upload, QrCode, Coins 
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -41,6 +42,7 @@ interface NotificationSettings {
 
 interface CoinflipConfig {
   win_percentage: number;
+  enabled: boolean;
 }
 
 const AdminSettings = () => {
@@ -79,6 +81,7 @@ const AdminSettings = () => {
 
   const [coinflipConfig, setCoinflipConfig] = useState<CoinflipConfig>({
     win_percentage: 50,
+    enabled: true,
   });
 
   // Check admin status
@@ -419,6 +422,28 @@ const AdminSettings = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Enable/Disable Toggle */}
+            <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-accent/20">
+              <div>
+                <p className="font-medium text-lg">Game Status</p>
+                <p className="text-sm text-muted-foreground">Enable or disable the coin flip game for all users</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={cn(
+                  "text-sm font-medium",
+                  coinflipConfig.enabled ? "text-success" : "text-destructive"
+                )}>
+                  {coinflipConfig.enabled ? "ENABLED" : "DISABLED"}
+                </span>
+                <Switch
+                  checked={coinflipConfig.enabled}
+                  onCheckedChange={(checked) => setCoinflipConfig({ ...coinflipConfig, enabled: checked })}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="win_percentage">Win Percentage</Label>
