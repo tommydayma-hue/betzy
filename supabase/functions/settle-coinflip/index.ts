@@ -6,6 +6,42 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Fetch result from external fair coin flip API
+async function getExternalCoinFlipResult(): Promise<string> {
+  try {
+    console.log('Fetching result from flipacoinfree.com API...');
+    const response = await fetch('https://flipacoinfree.com/api/flip', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API responded with status ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('External API response:', data);
+    
+    if (data.success && data.data && data.data.result) {
+      const result = data.data.result.toLowerCase();
+      if (result === 'heads' || result === 'tails') {
+        console.log('Using external API result:', result);
+        return result;
+      }
+    }
+    
+    throw new Error('Invalid API response format');
+  } catch (error) {
+    console.error('External API error, using fallback random:', error);
+    // Fallback to cryptographic random if API fails
+    const randomBytes = new Uint8Array(1);
+    crypto.getRandomValues(randomBytes);
+    const result = randomBytes[0] < 128 ? 'heads' : 'tails';
+    console.log('Fallback random result:', result);
+    return result;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -40,16 +76,20 @@ serve(async (req) => {
     for (const round of expiredRounds || []) {
       console.log(`Settling round ${round.id} (Round #${round.round_number})`);
       
-      // Call the settle function
-      const { data, error } = await supabase.rpc('settle_coinflip_round', {
-        p_round_id: round.id
+      // Get result from external API for fair randomness
+      const externalResult = await getExternalCoinFlipResult();
+      
+      // Call the new settle function with external result
+      const { data, error } = await supabase.rpc('settle_coinflip_round_with_result', {
+        p_round_id: round.id,
+        p_result: externalResult
       });
 
       if (error) {
         console.error(`Error settling round ${round.id}:`, error);
         results.push({ round_id: round.id, error: error.message });
       } else {
-        console.log(`Round ${round.id} settled:`, data);
+        console.log(`Round ${round.id} settled with result ${externalResult}:`, data);
         results.push({ round_id: round.id, ...data });
       }
     }

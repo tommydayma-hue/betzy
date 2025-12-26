@@ -552,6 +552,10 @@ export type Database = {
         Returns: undefined
       }
       settle_coinflip_round: { Args: { p_round_id: string }; Returns: Json }
+      settle_coinflip_round_with_result: {
+        Args: { p_result: string; p_round_id: string }
+        Returns: Json
+      }
       settle_toss_bets: {
         Args: { p_match_id: string; p_toss_winner: string }
         Returns: Json
