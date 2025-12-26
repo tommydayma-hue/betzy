@@ -49,18 +49,25 @@ const TossMatchCard = ({
       )}
     >
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-primary/80 to-primary px-4 py-2 text-center">
-        <h3 className="font-display font-bold text-primary-foreground text-sm md:text-base truncate">
+      <div className="bg-gradient-to-r from-primary/80 to-primary px-4 py-2 flex items-center justify-between">
+        <h3 className="font-display font-bold text-primary-foreground text-sm md:text-base truncate flex-1 text-center">
           {match.team_a} vs {match.team_b}
         </h3>
+        {/* Info Button */}
+        <button 
+          className="flex-shrink-0 w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+          onClick={() => onShowInfo(match)}
+        >
+          <Info className="h-4 w-4 text-white" />
+        </button>
       </div>
 
-      <CardContent className="p-4 space-y-4">
+      <CardContent className="p-3 md:p-4 space-y-3">
         {/* Teams Section */}
         <div className="flex items-center justify-between gap-2">
           {/* Team A */}
           <div className="flex-1 text-center">
-            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-2 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+            <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-1.5 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center border border-border/30">
               {match.team_a_logo ? (
                 <img 
                   src={match.team_a_logo} 
@@ -68,20 +75,20 @@ const TossMatchCard = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-3xl">🏏</span>
+                <span className="text-2xl md:text-3xl">🏏</span>
               )}
             </div>
-            <p className="text-xs md:text-sm font-medium truncate">{match.team_a}</p>
+            <p className="text-xs md:text-sm font-medium truncate px-1">{match.team_a}</p>
           </div>
 
           {/* VS */}
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-muted-foreground font-display text-lg md:text-xl font-bold">v/s</span>
+          <div className="flex flex-col items-center">
+            <span className="text-muted-foreground font-display text-base md:text-lg font-bold">v/s</span>
           </div>
 
           {/* Team B */}
           <div className="flex-1 text-center">
-            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-2 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+            <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-1.5 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center border border-border/30">
               {match.team_b_logo ? (
                 <img 
                   src={match.team_b_logo} 
@@ -89,16 +96,16 @@ const TossMatchCard = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-3xl">🏏</span>
+                <span className="text-2xl md:text-3xl">🏏</span>
               )}
             </div>
-            <p className="text-xs md:text-sm font-medium truncate">{match.team_b}</p>
+            <p className="text-xs md:text-sm font-medium truncate px-1">{match.team_b}</p>
           </div>
         </div>
 
         {/* Win Ratio Circle */}
         <div className="flex justify-center">
-          <div className="relative w-16 h-16">
+          <div className="relative w-14 h-14 md:w-16 md:h-16">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
               <circle
                 cx="18" cy="18" r="15"
@@ -116,18 +123,18 @@ const TossMatchCard = ({
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[8px] text-muted-foreground">Win Ratio</span>
-              <span className="text-sm font-bold text-primary">{winRatio}%</span>
+              <span className="text-[7px] md:text-[8px] text-muted-foreground">Win Ratio</span>
+              <span className="text-xs md:text-sm font-bold text-primary">{winRatio}%</span>
             </div>
           </div>
         </div>
 
         {/* Match Info */}
-        <div className="space-y-1 text-center text-sm">
-          <p>
-            <span className="text-muted-foreground">Max Bet: </span>
+        <div className="text-center text-xs md:text-sm">
+          <p className="flex items-center justify-center gap-1 flex-wrap">
+            <span className="text-muted-foreground">Max Bet:</span>
             <span className="font-semibold text-primary">₹{maxBet.toLocaleString()}</span>
-            <span className="text-muted-foreground mx-2">|</span>
+            <span className="text-muted-foreground">•</span>
             <span className="text-muted-foreground">{format(startTime, "dd MMM hh:mm a")}</span>
           </p>
         </div>
@@ -137,22 +144,22 @@ const TossMatchCard = ({
           <CountdownTimer 
             targetTime={closingTime} 
             label="CLOSES IN" 
-            className="py-2 px-3 rounded-lg bg-destructive/10"
+            className="py-1.5 px-2 rounded-lg bg-destructive/10 text-xs md:text-sm"
           />
         )}
 
-        {/* Closing & Extra Time */}
-        <div className="space-y-1 text-center text-sm">
+        {/* Closing & Extra Time - Compact */}
+        <div className="flex justify-center gap-3 text-xs md:text-sm">
           {closingTime && (
-            <p>
-              <span className="font-medium text-muted-foreground">CLOSING TIME : </span>
-              <span className="font-bold text-destructive">{format(closingTime, "hh:mm a")}</span>
+            <p className="flex items-center gap-1">
+              <span className="text-muted-foreground">Close:</span>
+              <span className="font-semibold text-destructive">{format(closingTime, "hh:mm a")}</span>
             </p>
           )}
           {extraTime && (
-            <p>
-              <span className="font-medium text-muted-foreground">EXTRA TIME : </span>
-              <span className="font-bold text-primary">{format(extraTime, "hh:mm a")}</span>
+            <p className="flex items-center gap-1">
+              <span className="text-muted-foreground">Extra:</span>
+              <span className="font-semibold text-primary">{format(extraTime, "hh:mm a")}</span>
             </p>
           )}
         </div>
@@ -203,13 +210,6 @@ const TossMatchCard = ({
         </Button>
       </CardContent>
 
-      {/* Info Icon */}
-      <button 
-        className="absolute top-2 right-2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-        onClick={() => onShowInfo(match)}
-      >
-        <Info className="h-4 w-4" />
-      </button>
     </Card>
   );
 };
