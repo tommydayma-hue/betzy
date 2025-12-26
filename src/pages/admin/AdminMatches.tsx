@@ -666,20 +666,22 @@ const AdminMatchesContent = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Betting Closing Time</Label>
+                  <Label>Close Time 100P</Label>
                   <Input
                     type="datetime-local"
                     value={formData.closing_time}
                     onChange={(e) => setFormData({ ...formData, closing_time: e.target.value })}
                   />
+                  <p className="text-xs text-muted-foreground">Betting closes at 100% payout</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Extra Time</Label>
+                  <Label>Extra Time 95P</Label>
                   <Input
                     type="datetime-local"
                     value={formData.extra_time}
                     onChange={(e) => setFormData({ ...formData, extra_time: e.target.value })}
                   />
+                  <p className="text-xs text-muted-foreground">Extended betting at 95% payout</p>
                 </div>
               </div>
             </div>
