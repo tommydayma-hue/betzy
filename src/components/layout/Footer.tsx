@@ -85,7 +85,7 @@ export const Footer = () => {
           <p className="text-sm text-gray-500">
             © 2024 Royall11. All rights reserved.
           </p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-600">
             18+ Only. Play Responsibly. Gambling can be addictive.
           </p>
         </div>
