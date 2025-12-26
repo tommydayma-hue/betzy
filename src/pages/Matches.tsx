@@ -600,6 +600,29 @@ const Matches = () => {
 
           {infoMatch && (
             <div className="space-y-4">
+              {/* Custom Info Image */}
+              {infoMatch.info_image && (
+                <div className="rounded-lg overflow-hidden">
+                  <img 
+                    src={infoMatch.info_image} 
+                    alt="Match Info" 
+                    className="w-full h-auto object-cover"
+                  />
+                </div>
+              )}
+
+              {/* Custom Info Text Lines */}
+              {(infoMatch.info_text_1 || infoMatch.info_text_2) && (
+                <div className="space-y-2 p-4 bg-primary/10 rounded-lg">
+                  {infoMatch.info_text_1 && (
+                    <p className="text-sm font-medium text-center">{infoMatch.info_text_1}</p>
+                  )}
+                  {infoMatch.info_text_2 && (
+                    <p className="text-sm text-muted-foreground text-center">{infoMatch.info_text_2}</p>
+                  )}
+                </div>
+              )}
+
               {/* Teams */}
               <div className="flex items-center justify-between gap-4">
                 <div className="flex-1 text-center">
