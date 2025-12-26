@@ -159,7 +159,28 @@ const CoinFlip = () => {
     return () => clearInterval(interval);
   }, [currentRound, settleRound]);
 
-  // Realtime subscription - this is the key for synchronized updates
+  // Store refs for callbacks to avoid re-subscribing
+  const currentRoundRef = useRef(currentRound);
+  const currentBetRef = useRef(currentBet);
+  const fetchCurrentRoundRef = useRef(fetchCurrentRound);
+  const fetchPastResultsRef = useRef(fetchPastResults);
+  const fetchUserBetHistoryRef = useRef(fetchUserBetHistory);
+  const refreshProfileRef = useRef(refreshProfile);
+  const playWinSoundRef = useRef(playWinSound);
+  const playLoseSoundRef = useRef(playLoseSound);
+  
+  useEffect(() => {
+    currentRoundRef.current = currentRound;
+    currentBetRef.current = currentBet;
+    fetchCurrentRoundRef.current = fetchCurrentRound;
+    fetchPastResultsRef.current = fetchPastResults;
+    fetchUserBetHistoryRef.current = fetchUserBetHistory;
+    refreshProfileRef.current = refreshProfile;
+    playWinSoundRef.current = playWinSound;
+    playLoseSoundRef.current = playLoseSound;
+  });
+
+  // Realtime subscription - STABLE, subscribes once only
   useEffect(() => {
     const channel = supabase
       .channel('coinflip-sync')
@@ -170,7 +191,7 @@ const CoinFlip = () => {
           schema: 'public',
           table: 'coinflip_rounds',
         },
-        async (payload) => {
+        (payload) => {
           const updatedRound = payload.new as Round;
           
           // Round was just settled - show result to all users
@@ -178,28 +199,31 @@ const CoinFlip = () => {
             setLastRoundResult(updatedRound.result);
             setShowResult(true);
             
-            // Check if current user won/lost
-            if (currentBet && currentRound?.id === updatedRound.id) {
-              const won = currentBet.choice === updatedRound.result;
+            // Check if current user won/lost using refs
+            const bet = currentBetRef.current;
+            const round = currentRoundRef.current;
+            
+            if (bet && round?.id === updatedRound.id) {
+              const won = bet.choice === updatedRound.result;
               
               if (won) {
-                playWinSound();
+                playWinSoundRef.current();
                 setShowConfetti(true);
-                setLastWinAmount(currentBet.amount * 1.95);
+                setLastWinAmount(bet.amount * 1.95);
                 setLastLossAmount(null);
                 setTimeout(() => setShowConfetti(false), 3000);
               } else {
-                playLoseSound();
-                setLastLossAmount(currentBet.amount);
+                playLoseSoundRef.current();
+                setLastLossAmount(bet.amount);
                 setLastWinAmount(null);
               }
               
-              await refreshProfile();
+              refreshProfileRef.current();
             }
             
             // Refresh data after settlement
-            await fetchPastResults();
-            await fetchUserBetHistory();
+            fetchPastResultsRef.current();
+            fetchUserBetHistoryRef.current();
           }
         }
       )
@@ -210,9 +234,9 @@ const CoinFlip = () => {
           schema: 'public',
           table: 'coinflip_rounds',
         },
-        async () => {
+        () => {
           // New round created - refresh everything
-          await fetchCurrentRound();
+          fetchCurrentRoundRef.current();
           setCurrentBet(null);
           setSelectedSide(null);
           setBetAmount("");
@@ -224,7 +248,7 @@ const CoinFlip = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentRound, currentBet, fetchCurrentRound, fetchPastResults, fetchUserBetHistory, refreshProfile, playWinSound, playLoseSound]);
+  }, []); // Empty deps - subscribes once only
 
   // Place bet
   const handlePlaceBet = async () => {
