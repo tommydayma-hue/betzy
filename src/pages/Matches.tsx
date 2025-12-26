@@ -141,23 +141,20 @@ const TossMatchCard = ({
           </p>
         </div>
 
-        {/* Countdown Timers for Close Time and Extra Time */}
-        <div className="flex flex-col gap-2">
-          {closingTime && (
-            <CountdownTimer 
-              targetTime={closingTime} 
-              label="Close Time 100P" 
-              className="py-1.5 px-2 rounded-lg bg-destructive/10 text-xs md:text-sm"
-            />
-          )}
-          {extraTime && (
-            <CountdownTimer 
-              targetTime={extraTime} 
-              label="Extra Time 95P" 
-              className="py-1.5 px-2 rounded-lg bg-primary/10 text-xs md:text-sm"
-            />
-          )}
-        </div>
+        {/* Countdown Timer - Show Extra Time if available, otherwise Close Time */}
+        {extraTime ? (
+          <CountdownTimer 
+            targetTime={extraTime} 
+            label="Extra Time 95P" 
+            className="py-1.5 px-2 rounded-lg bg-primary/10 text-xs md:text-sm"
+          />
+        ) : closingTime ? (
+          <CountdownTimer 
+            targetTime={closingTime} 
+            label="Close Time 100P" 
+            className="py-1.5 px-2 rounded-lg bg-destructive/10 text-xs md:text-sm"
+          />
+        ) : null}
 
         {/* User's bet info */}
         {userBet && (
