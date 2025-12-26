@@ -323,34 +323,30 @@ const AdminMatchesContent = () => {
   const handleSettle = async (winner: 'team_a' | 'team_b') => {
     if (!settlingMatch) return;
 
-    // If deadline is set, update the closing_time first
-    if (settleDeadline) {
-      const deadlineTime = new Date(settleDeadline).toISOString();
-      const { error: updateError } = await supabase
-        .from("matches")
-        .update({ closing_time: deadlineTime })
-        .eq("id", settlingMatch.id);
-
-      if (updateError) {
-        toast.error("Failed to set deadline");
-        return;
-      }
-    }
-
     setSettling(true);
     try {
+      // Pass toss time if set - bets placed after this time will be refunded
       const { data, error } = await supabase.rpc('settle_toss_bets', {
         p_match_id: settlingMatch.id,
-        p_toss_winner: winner
+        p_toss_winner: winner,
+        p_toss_time: settleDeadline ? new Date(settleDeadline).toISOString() : null
       });
 
       if (error) throw error;
 
-      const result = data as { winners_count: number; losers_count: number; total_payout: number };
-      toast.success(`Toss settled! ${result.winners_count} winners, ${result.losers_count} losers. Total payout: ₹${result.total_payout.toLocaleString()}`);
+      const result = data as { winners_count: number; losers_count: number; refunded_count: number; total_payout: number; total_refunded: number };
+      
+      let message = `Toss settled! ${result.winners_count} winners, ${result.losers_count} losers.`;
+      if (result.refunded_count > 0) {
+        message += ` ${result.refunded_count} bets refunded (₹${result.total_refunded.toLocaleString()}).`;
+      }
+      message += ` Payout: ₹${result.total_payout.toLocaleString()}`;
+      
+      toast.success(message);
       setSettleDialogOpen(false);
       setSettlingMatch(null);
       setBetTotals(null);
+      setSettleDeadline("");
       fetchMatches();
     } catch (error: any) {
       toast.error(error.message || "Failed to settle match");
@@ -827,14 +823,14 @@ const AdminMatchesContent = () => {
                 )}
               </div>
 
-              {/* Deadline Timer Setting */}
-              <div className="bg-accent/30 rounded-lg p-4">
+              {/* Actual Toss Time Setting */}
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Clock className="h-4 w-4 text-destructive" />
-                  <span className="font-medium text-sm">Set Betting Deadline</span>
+                  <span className="font-medium text-sm text-destructive">Actual Toss Time (Optional)</span>
                 </div>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Bets placed after this time will be considered invalid and will lose.
+                  Enter the exact time when the toss happened. Bets placed AFTER this time will be <strong>refunded</strong> (invalid bets).
                 </p>
                 <Input
                   type="datetime-local"
@@ -843,8 +839,8 @@ const AdminMatchesContent = () => {
                   className="w-full"
                 />
                 {settleDeadline && (
-                  <p className="text-xs text-success mt-2">
-                    Deadline set: {format(new Date(settleDeadline), "dd MMM yyyy hh:mm a")}
+                  <p className="text-xs text-warning mt-2 font-medium">
+                    ⚠️ Bets after {format(new Date(settleDeadline), "dd MMM yyyy hh:mm:ss a")} will be refunded
                   </p>
                 )}
               </div>
