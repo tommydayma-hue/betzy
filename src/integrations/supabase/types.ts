@@ -189,6 +189,9 @@ export type Database = {
           created_at: string
           extra_time: string | null
           id: string
+          info_image: string | null
+          info_text_1: string | null
+          info_text_2: string | null
           league: string | null
           max_bet: number | null
           odds_draw: number | null
@@ -212,6 +215,9 @@ export type Database = {
           created_at?: string
           extra_time?: string | null
           id?: string
+          info_image?: string | null
+          info_text_1?: string | null
+          info_text_2?: string | null
           league?: string | null
           max_bet?: number | null
           odds_draw?: number | null
@@ -235,6 +241,9 @@ export type Database = {
           created_at?: string
           extra_time?: string | null
           id?: string
+          info_image?: string | null
+          info_text_1?: string | null
+          info_text_2?: string | null
           league?: string | null
           max_bet?: number | null
           odds_draw?: number | null

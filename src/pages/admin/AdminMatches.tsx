@@ -42,6 +42,9 @@ interface Match {
   score_team_b: number | null;
   winner: string | null;
   toss_winner: string | null;
+  info_image: string | null;
+  info_text_1: string | null;
+  info_text_2: string | null;
 }
 
 interface FormData {
@@ -58,6 +61,9 @@ interface FormData {
   extra_time: string;
   max_bet: number;
   status: MatchStatus;
+  info_image: string;
+  info_text_1: string;
+  info_text_2: string;
 }
 
 const emptyFormData: FormData = {
@@ -74,6 +80,9 @@ const emptyFormData: FormData = {
   extra_time: "",
   max_bet: 100000,
   status: "upcoming",
+  info_image: "",
+  info_text_1: "",
+  info_text_2: "",
 };
 
 const AdminMatchesContent = () => {
@@ -89,12 +98,14 @@ const AdminMatchesContent = () => {
   const [settling, setSettling] = useState(false);
   const [uploadingA, setUploadingA] = useState(false);
   const [uploadingB, setUploadingB] = useState(false);
+  const [uploadingInfo, setUploadingInfo] = useState(false);
   const [betTotals, setBetTotals] = useState<BetTotals | null>(null);
   const [loadingBetTotals, setLoadingBetTotals] = useState(false);
   const [settleDeadline, setSettleDeadline] = useState("");
   
   const fileInputARef = useRef<HTMLInputElement>(null);
   const fileInputBRef = useRef<HTMLInputElement>(null);
+  const fileInputInfoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchMatches();
@@ -150,6 +161,33 @@ const AdminMatchesContent = () => {
     }
   };
 
+  const uploadInfoImage = async (file: File) => {
+    setUploadingInfo(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_info.${fileExt}`;
+      const filePath = `match-info/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('deposit-screenshots')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('deposit-screenshots')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, info_image: publicUrl }));
+      toast.success("Info image uploaded");
+    } catch (error: any) {
+      toast.error(`Failed to upload: ${error.message}`);
+    } finally {
+      setUploadingInfo(false);
+    }
+  };
+
   const openCreateDialog = () => {
     setEditingMatch(null);
     const now = new Date();
@@ -179,6 +217,9 @@ const AdminMatchesContent = () => {
       extra_time: match.extra_time ? new Date(match.extra_time).toISOString().slice(0, 16) : "",
       max_bet: match.max_bet || 100000,
       status: match.status,
+      info_image: match.info_image || "",
+      info_text_1: match.info_text_1 || "",
+      info_text_2: match.info_text_2 || "",
     });
     setDialogOpen(true);
   };
@@ -246,6 +287,9 @@ const AdminMatchesContent = () => {
       extra_time: formData.extra_time ? new Date(formData.extra_time).toISOString() : null,
       max_bet: Number(formData.max_bet),
       status: formData.status,
+      info_image: formData.info_image || null,
+      info_text_1: formData.info_text_1 || null,
+      info_text_2: formData.info_text_2 || null,
     };
 
     if (editingMatch?.id) {
@@ -488,6 +532,13 @@ const AdminMatchesContent = () => {
         className="hidden"
         onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0], 'b')}
       />
+      <input
+        ref={fileInputInfoRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => e.target.files?.[0] && uploadInfoImage(e.target.files[0])}
+      />
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -634,6 +685,74 @@ const AdminMatchesContent = () => {
                     onChange={(e) => setFormData({ ...formData, extra_time: e.target.value })}
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Match Info Section (for Info Button) */}
+            <div className="space-y-3 p-4 bg-accent/20 rounded-lg">
+              <Label className="text-sm font-semibold">Match Info (shown in Info Button)</Label>
+              
+              {/* Info Image */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Info Image</Label>
+                <div className="flex items-center gap-3">
+                  {formData.info_image ? (
+                    <img src={formData.info_image} alt="Info" className="w-20 h-20 rounded-lg object-cover" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+                      No image
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputInfoRef.current?.click()}
+                      disabled={uploadingInfo}
+                    >
+                      {uploadingInfo ? (
+                        <span className="animate-spin">⏳</span>
+                      ) : (
+                        <>
+                          <Upload className="h-3 w-3 mr-1" />
+                          Upload Image
+                        </>
+                      )}
+                    </Button>
+                    {formData.info_image && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => setFormData(prev => ({ ...prev, info_image: "" }))}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Text 1 */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Info Text Line 1</Label>
+                <Input
+                  placeholder="e.g., Match starts at 3:30 PM IST"
+                  value={formData.info_text_1}
+                  onChange={(e) => setFormData({ ...formData, info_text_1: e.target.value })}
+                />
+              </div>
+
+              {/* Info Text 2 */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Info Text Line 2</Label>
+                <Input
+                  placeholder="e.g., Special bonus: 10% extra on winning bets!"
+                  value={formData.info_text_2}
+                  onChange={(e) => setFormData({ ...formData, info_text_2: e.target.value })}
+                />
               </div>
             </div>
 
