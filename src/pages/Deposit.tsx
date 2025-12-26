@@ -233,14 +233,17 @@ const Deposit = () => {
   }
 
   const PaymentDetailRow = ({ label, value, field }: { label: string; value: string; field: string }) => (
-    <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-      <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-blue-500" />
-        <span className="text-sm text-gray-700">{label}: <span className="font-medium text-gray-900">{value || "-"}</span></span>
+    <div className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0 gap-2">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+        <span className="text-sm text-gray-700 truncate">
+          {label}:{" "}
+          <span className="font-semibold text-gray-900 break-all">{value || "-"}</span>
+        </span>
       </div>
       <button
         onClick={() => handleCopy(value, field)}
-        className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+        className="p-1.5 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
         disabled={!value}
       >
         {copiedField === field ? (
