@@ -141,28 +141,21 @@ const TossMatchCard = ({
           </p>
         </div>
 
-        {/* Countdown Timer */}
-        {closingTime && (
-          <CountdownTimer 
-            targetTime={closingTime} 
-            label="CLOSES IN" 
-            className="py-1.5 px-2 rounded-lg bg-destructive/10 text-xs md:text-sm"
-          />
-        )}
-
-        {/* Closing & Extra Time - Compact */}
-        <div className="flex justify-center gap-3 text-xs md:text-sm">
+        {/* Countdown Timers for Close Time and Extra Time */}
+        <div className="flex flex-col gap-2">
           {closingTime && (
-            <p className="flex items-center gap-1">
-              <span className="text-muted-foreground">Close Time 100P:</span>
-              <span className="font-semibold text-destructive">{format(closingTime, "hh:mm a")}</span>
-            </p>
+            <CountdownTimer 
+              targetTime={closingTime} 
+              label="Close Time 100P" 
+              className="py-1.5 px-2 rounded-lg bg-destructive/10 text-xs md:text-sm"
+            />
           )}
           {extraTime && (
-            <p className="flex items-center gap-1">
-              <span className="text-muted-foreground">Extra Time 95P:</span>
-              <span className="font-semibold text-primary">{format(extraTime, "hh:mm a")}</span>
-            </p>
+            <CountdownTimer 
+              targetTime={extraTime} 
+              label="Extra Time 95P" 
+              className="py-1.5 px-2 rounded-lg bg-primary/10 text-xs md:text-sm"
+            />
           )}
         </div>
 
