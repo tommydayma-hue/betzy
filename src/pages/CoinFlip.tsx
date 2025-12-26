@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Coins, Clock, Wallet, AlertCircle, CheckCircle } from "lucide-react";
+import { Coins, Clock, Wallet, AlertCircle, CheckCircle, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,6 +53,8 @@ const CoinFlip = () => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [lastWinAmount, setLastWinAmount] = useState<number | null>(null);
   const [lastLossAmount, setLastLossAmount] = useState<number | null>(null);
+  const [gameEnabled, setGameEnabled] = useState<boolean | null>(null);
+  const [checkingEnabled, setCheckingEnabled] = useState(true);
   
   // Refs to prevent duplicate processing
   const processedRoundRef = useRef<string | null>(null);
@@ -162,8 +164,34 @@ const CoinFlip = () => {
     }
   }, []);
 
+  // Check if game is enabled
+  const checkGameEnabled = useCallback(async () => {
+    setCheckingEnabled(true);
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'coinflip_config')
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data?.value) {
+        const config = data.value as { enabled?: boolean };
+        setGameEnabled(config.enabled !== false); // Default to enabled if not set
+      } else {
+        setGameEnabled(true); // Default to enabled if no config exists
+      }
+    } catch (error) {
+      console.error('Error checking game status:', error);
+      setGameEnabled(true); // Default to enabled on error
+    }
+    setCheckingEnabled(false);
+  }, []);
+
   // Initial load - sync time first, then fetch data
   useEffect(() => {
+    checkGameEnabled();
     syncServerTime();
     fetchCurrentRound();
     fetchPastResults();
@@ -171,7 +199,7 @@ const CoinFlip = () => {
     
     // Settle any pending rounds on page load
     settleRound();
-  }, [syncServerTime, fetchCurrentRound, fetchPastResults, fetchUserBetHistory, settleRound]);
+  }, [checkGameEnabled, syncServerTime, fetchCurrentRound, fetchPastResults, fetchUserBetHistory, settleRound]);
 
   // Timer - uses server time offset for accuracy
   useEffect(() => {
@@ -390,221 +418,246 @@ const CoinFlip = () => {
             </p>
           </div>
 
-          {/* Balance */}
-          {user && profile && (
-            <div className="flex justify-center mb-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/30">
-                <Wallet className="h-4 w-4 text-success" />
-                <span className="font-bold text-success">
-                  ₹{Number(profile.wallet_balance).toLocaleString()}
-                </span>
-              </div>
+          {/* Game Disabled Message */}
+          {!checkingEnabled && gameEnabled === false && (
+            <Card className="mb-8 border-destructive bg-destructive/10">
+              <CardContent className="p-8 text-center">
+                <Ban className="h-16 w-16 text-destructive mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-destructive mb-2">Game Currently Disabled</h2>
+                <p className="text-muted-foreground">
+                  The Coin Flip game is temporarily unavailable. Please check back later.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Loading State */}
+          {checkingEnabled && (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Bet Card */}
-            <Card className="bg-card border-border">
-              <CardContent className="p-6">
-                <h2 className="text-xl font-bold text-center text-primary mb-4">BET NOW</h2>
-
-                {/* Win/Loss Banner */}
-                {lastWinAmount && (
-                  <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg mb-4 bg-success/10 text-success border border-success/30">
-                    <CheckCircle className="h-5 w-5" />
-                    <span>🎉 You Won ₹{lastWinAmount.toFixed(2)}!</span>
-                  </div>
-                )}
-                {lastLossAmount && (
-                  <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg mb-4 bg-destructive/10 text-destructive border border-destructive/30">
-                    <AlertCircle className="h-5 w-5" />
-                    <span>You Lost ₹{lastLossAmount.toFixed(2)}</span>
-                  </div>
-                )}
-
-                <p className="text-center text-muted-foreground text-sm mb-4">
-                  Minimum Bet: <span className="text-primary font-semibold">₹10</span>
-                </p>
-
-                {/* Round Info */}
-                {currentRound && (
-                  <div className="text-center mb-2">
-                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-                      Round #{currentRound.round_number}
+          {/* Game Content - Only show when enabled */}
+          {!checkingEnabled && gameEnabled && (
+            <>
+              {/* Balance */}
+              {user && profile && (
+                <div className="flex justify-center mb-6">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/30">
+                    <Wallet className="h-4 w-4 text-success" />
+                    <span className="font-bold text-success">
+                      ₹{Number(profile.wallet_balance).toLocaleString()}
                     </span>
                   </div>
-                )}
-
-                {/* Timer */}
-                <div className="flex justify-center mb-6">
-                  <div className={cn(
-                    "px-6 py-3 rounded-lg flex items-center gap-2",
-                    bettingClosed 
-                      ? "bg-destructive text-destructive-foreground" 
-                      : timeRemaining <= 5 
-                        ? "bg-warning text-warning-foreground" 
-                        : "bg-primary text-primary-foreground"
-                  )}>
-                    <Clock className="h-4 w-4" />
-                    <span className="font-mono text-xl font-bold">{formatTime(timeRemaining)}</span>
-                  </div>
                 </div>
+              )}
 
-                {/* Bet Amount */}
-                <div className="space-y-3 mb-6">
-                  <label className="text-sm font-medium text-foreground">Bet Amount</label>
-                  <Input
-                    type="number"
-                    placeholder="Enter amount"
-                    value={betAmount}
-                    onChange={(e) => setBetAmount(e.target.value)}
-                    disabled={isPlacingBet || hasBet || bettingClosed}
-                    className="text-center h-11 bg-muted/50"
-                  />
-                  <div className="flex gap-2 flex-wrap">
-                    {quickAmounts.map((amount) => (
-                      <Button
-                        key={amount}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 min-w-[60px]"
-                        onClick={() => setBetAmount(amount.toString())}
-                        disabled={isPlacingBet || hasBet || bettingClosed}
-                      >
-                        ₹{amount}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Side Selection */}
-                <div className="mb-6">
-                  <span className="text-sm font-medium text-foreground mb-3 block">Choose Side:</span>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button
-                      variant={selectedSide === "heads" ? "default" : "outline"}
-                      onClick={() => !hasBet && !bettingClosed && setSelectedSide("heads")}
-                      disabled={isPlacingBet || hasBet || bettingClosed}
-                      className={cn(
-                        "h-14 text-base font-bold",
-                        selectedSide === "heads" && "bg-warning text-warning-foreground hover:bg-warning/90"
-                      )}
-                    >
-                      🪙 HEADS
-                    </Button>
-                    <Button
-                      variant={selectedSide === "tails" ? "default" : "outline"}
-                      onClick={() => !hasBet && !bettingClosed && setSelectedSide("tails")}
-                      disabled={isPlacingBet || hasBet || bettingClosed}
-                      className={cn(
-                        "h-14 text-base font-bold",
-                        selectedSide === "tails" && "bg-blue-500 text-white hover:bg-blue-600"
-                      )}
-                    >
-                      🪙 TAILS
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Potential Win */}
-                {betAmount && parseFloat(betAmount) >= 10 && (
-                  <div className="text-center py-3 bg-success/10 rounded-lg mb-4">
-                    <p className="text-sm text-muted-foreground">Potential Win</p>
-                    <p className="text-xl font-bold text-success">
-                      ₹{(parseFloat(betAmount) * 1.95).toFixed(2)}
-                    </p>
-                  </div>
-                )}
-
-                {/* Current Bet */}
-                {hasBet && (
-                  <div className="text-center py-3 bg-primary/10 rounded-lg mb-4 border border-primary/30">
-                    <p className="text-sm text-muted-foreground">Your Bet</p>
-                    <p className="text-lg font-bold text-primary">
-                      ₹{currentBet.amount} on {currentBet.choice.toUpperCase()}
-                    </p>
-                  </div>
-                )}
-
-                {/* Place Bet Button */}
-                <Button
-                  onClick={handlePlaceBet}
-                  disabled={isPlacingBet || hasBet || bettingClosed || !selectedSide || !betAmount}
-                  className="w-full h-12 text-lg font-bold"
-                  size="lg"
-                >
-                  {isPlacingBet ? "Placing..." : hasBet ? "Bet Placed" : bettingClosed ? "Betting Closed" : "Place Bet"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Results Column */}
-            <div className="space-y-6">
-              {/* Past Results */}
-              <Card className="bg-card border-border">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-bold text-primary mb-4">Past Results</h3>
-                  {pastResults.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">No results yet</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {pastResults.map((r) => (
-                        <div
-                          key={r.id}
-                          className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
-                            r.result === "heads"
-                              ? "bg-warning/20 text-warning border border-warning/30"
-                              : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                          )}
-                          title={`Round #${r.round_number}`}
-                        >
-                          {r.result === "heads" ? "H" : "T"}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* User Bet History */}
-              {user && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Bet Card */}
                 <Card className="bg-card border-border">
                   <CardContent className="p-6">
-                    <h3 className="text-lg font-bold text-primary mb-4">Your History</h3>
-                    {userBetHistory.length === 0 ? (
-                      <p className="text-muted-foreground text-center py-4">No bets yet</p>
-                    ) : (
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {userBetHistory.map((bet) => (
-                          <div
-                            key={bet.id}
-                            className={cn(
-                              "flex items-center justify-between p-3 rounded-lg text-sm",
-                              bet.status === "won" ? "bg-success/10" : bet.status === "lost" ? "bg-destructive/10" : "bg-muted/50"
-                            )}
-                          >
-                            <div>
-                              <span className="font-medium">#{bet.coinflip_rounds?.round_number}</span>
-                              <span className="ml-2 text-muted-foreground">{bet.choice.toUpperCase()}</span>
-                            </div>
-                            <div className="text-right">
-                              <span className={cn(
-                                "font-bold",
-                                bet.status === "won" ? "text-success" : bet.status === "lost" ? "text-destructive" : "text-muted-foreground"
-                              )}>
-                                {bet.status === "won" ? `+₹${bet.payout}` : bet.status === "lost" ? `-₹${bet.amount}` : "Pending"}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                    <h2 className="text-xl font-bold text-center text-primary mb-4">BET NOW</h2>
+
+                    {/* Win/Loss Banner */}
+                    {lastWinAmount && (
+                      <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg mb-4 bg-success/10 text-success border border-success/30">
+                        <CheckCircle className="h-5 w-5" />
+                        <span>🎉 You Won ₹{lastWinAmount.toFixed(2)}!</span>
                       </div>
                     )}
+                    {lastLossAmount && (
+                      <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg mb-4 bg-destructive/10 text-destructive border border-destructive/30">
+                        <AlertCircle className="h-5 w-5" />
+                        <span>You Lost ₹{lastLossAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    <p className="text-center text-muted-foreground text-sm mb-4">
+                      Minimum Bet: <span className="text-primary font-semibold">₹10</span>
+                    </p>
+
+                    {/* Round Info */}
+                    {currentRound && (
+                      <div className="text-center mb-2">
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                          Round #{currentRound.round_number}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Timer */}
+                    <div className="flex justify-center mb-6">
+                      <div className={cn(
+                        "px-6 py-3 rounded-lg flex items-center gap-2",
+                        bettingClosed 
+                          ? "bg-destructive text-destructive-foreground" 
+                          : timeRemaining <= 5 
+                            ? "bg-warning text-warning-foreground" 
+                            : "bg-primary text-primary-foreground"
+                      )}>
+                        <Clock className="h-4 w-4" />
+                        <span className="font-mono text-xl font-bold">{formatTime(timeRemaining)}</span>
+                      </div>
+                    </div>
+
+                    {/* Bet Amount */}
+                    <div className="space-y-3 mb-6">
+                      <label className="text-sm font-medium text-foreground">Bet Amount</label>
+                      <Input
+                        type="number"
+                        placeholder="Enter amount"
+                        value={betAmount}
+                        onChange={(e) => setBetAmount(e.target.value)}
+                        disabled={isPlacingBet || hasBet || bettingClosed}
+                        className="text-center h-11 bg-muted/50"
+                      />
+                      <div className="flex gap-2 flex-wrap">
+                        {quickAmounts.map((amount) => (
+                          <Button
+                            key={amount}
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 min-w-[60px]"
+                            onClick={() => setBetAmount(amount.toString())}
+                            disabled={isPlacingBet || hasBet || bettingClosed}
+                          >
+                            ₹{amount}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Side Selection */}
+                    <div className="mb-6">
+                      <span className="text-sm font-medium text-foreground mb-3 block">Choose Side:</span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Button
+                          variant={selectedSide === "heads" ? "default" : "outline"}
+                          onClick={() => !hasBet && !bettingClosed && setSelectedSide("heads")}
+                          disabled={isPlacingBet || hasBet || bettingClosed}
+                          className={cn(
+                            "h-14 text-base font-bold",
+                            selectedSide === "heads" && "bg-warning text-warning-foreground hover:bg-warning/90"
+                          )}
+                        >
+                          🪙 HEADS
+                        </Button>
+                        <Button
+                          variant={selectedSide === "tails" ? "default" : "outline"}
+                          onClick={() => !hasBet && !bettingClosed && setSelectedSide("tails")}
+                          disabled={isPlacingBet || hasBet || bettingClosed}
+                          className={cn(
+                            "h-14 text-base font-bold",
+                            selectedSide === "tails" && "bg-blue-500 text-white hover:bg-blue-600"
+                          )}
+                        >
+                          🪙 TAILS
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Potential Win */}
+                    {betAmount && parseFloat(betAmount) >= 10 && (
+                      <div className="text-center py-3 bg-success/10 rounded-lg mb-4">
+                        <p className="text-sm text-muted-foreground">Potential Win</p>
+                        <p className="text-xl font-bold text-success">
+                          ₹{(parseFloat(betAmount) * 1.95).toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Current Bet */}
+                    {hasBet && (
+                      <div className="text-center py-3 bg-primary/10 rounded-lg mb-4 border border-primary/30">
+                        <p className="text-sm text-muted-foreground">Your Bet</p>
+                        <p className="text-lg font-bold text-primary">
+                          ₹{currentBet.amount} on {currentBet.choice.toUpperCase()}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Place Bet Button */}
+                    <Button
+                      onClick={handlePlaceBet}
+                      disabled={isPlacingBet || hasBet || bettingClosed || !selectedSide || !betAmount}
+                      className="w-full h-12 text-lg font-bold"
+                      size="lg"
+                    >
+                      {isPlacingBet ? "Placing..." : hasBet ? "Bet Placed" : bettingClosed ? "Betting Closed" : "Place Bet"}
+                    </Button>
                   </CardContent>
                 </Card>
-              )}
-            </div>
-          </div>
+
+                {/* Results Column */}
+                <div className="space-y-6">
+                  {/* Past Results */}
+                  <Card className="bg-card border-border">
+                    <CardContent className="p-6">
+                      <h3 className="text-lg font-bold text-primary mb-4">Past Results</h3>
+                      {pastResults.length === 0 ? (
+                        <p className="text-muted-foreground text-center py-4">No results yet</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {pastResults.map((r) => (
+                            <div
+                              key={r.id}
+                              className={cn(
+                                "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
+                                r.result === "heads"
+                                  ? "bg-warning/20 text-warning border border-warning/30"
+                                  : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                              )}
+                              title={`Round #${r.round_number}`}
+                            >
+                              {r.result === "heads" ? "H" : "T"}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* User Bet History */}
+                  {user && (
+                    <Card className="bg-card border-border">
+                      <CardContent className="p-6">
+                        <h3 className="text-lg font-bold text-primary mb-4">Your History</h3>
+                        {userBetHistory.length === 0 ? (
+                          <p className="text-muted-foreground text-center py-4">No bets yet</p>
+                        ) : (
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {userBetHistory.map((bet) => (
+                              <div
+                                key={bet.id}
+                                className={cn(
+                                  "flex items-center justify-between p-3 rounded-lg text-sm",
+                                  bet.status === "won" ? "bg-success/10" : bet.status === "lost" ? "bg-destructive/10" : "bg-muted/50"
+                                )}
+                              >
+                                <div>
+                                  <span className="font-medium">#{bet.coinflip_rounds?.round_number}</span>
+                                  <span className="ml-2 text-muted-foreground">{bet.choice.toUpperCase()}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className={cn(
+                                    "font-bold",
+                                    bet.status === "won" ? "text-success" : bet.status === "lost" ? "text-destructive" : "text-muted-foreground"
+                                  )}>
+                                    {bet.status === "won" ? `+₹${bet.payout}` : bet.status === "lost" ? `-₹${bet.amount}` : "Pending"}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </main>
     </div>
