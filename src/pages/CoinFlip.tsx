@@ -39,7 +39,6 @@ const CoinFlip = () => {
   // Animation state
   const [isFlipping, setIsFlipping] = useState(false);
   const [flipResult, setFlipResult] = useState<"heads" | "tails" | null>(null);
-  const [showAnimation, setShowAnimation] = useState(false);
 
   const quickAmounts = [10, 50, 100, 500, 1000];
 
@@ -135,10 +134,9 @@ const CoinFlip = () => {
       setBettingClosed(remaining <= 2);
 
       // When round ends, settle and get new round
-      if (remaining === 0) {
+      if (remaining === 0 && !isFlipping) {
         // Start flip animation
         setIsFlipping(true);
-        setShowAnimation(true);
         
         setTimeout(async () => {
           await settleRound();
@@ -168,25 +166,10 @@ const CoinFlip = () => {
               setLastResult({
                 result: (data as any).coinflip_rounds?.result || '',
                 won,
-                amount: won ? data.payout : data.amount
+                amount: won ? data.payout || 0 : data.amount
               });
             }
           }
-          
-          // Reset for next round after animation
-          setTimeout(async () => {
-            setIsFlipping(false);
-            
-            setHasBetThisRound(false);
-            setCurrentBet(null);
-            setSelectedSide(null);
-            setBetAmount("");
-            
-            await fetchCurrentRound();
-            await fetchPastResults();
-            await fetchUserBetHistory();
-            await refreshProfile();
-          }, 2500);
         }, 500);
       }
     };
@@ -276,13 +259,25 @@ const CoinFlip = () => {
     return `00:00:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleAnimationDismiss = () => {
-    setShowAnimation(false);
+  const handleAnimationDismiss = async () => {
     setFlipResult(null);
+    setIsFlipping(false);
+    
+    // Reset bet state for next round
+    setHasBetThisRound(false);
+    setCurrentBet(null);
+    setSelectedSide(null);
+    setBetAmount("");
+    
+    // Fetch fresh data
+    await fetchCurrentRound();
+    await fetchPastResults();
+    await fetchUserBetHistory();
+    await refreshProfile();
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-gray-50" onClick={showAnimation && !isFlipping ? handleAnimationDismiss : undefined}>
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-gray-50">
       <Header />
       
       {/* Coin Flip Animation */}
@@ -290,6 +285,7 @@ const CoinFlip = () => {
         result={flipResult} 
         isFlipping={isFlipping} 
         onComplete={() => setIsFlipping(false)}
+        onDismiss={handleAnimationDismiss}
       />
       
       <main className="pt-20 pb-12 px-4">

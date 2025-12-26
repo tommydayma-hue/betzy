@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -6,27 +6,37 @@ interface CoinFlipAnimationProps {
   result: "heads" | "tails" | null;
   isFlipping: boolean;
   onComplete?: () => void;
+  onDismiss?: () => void;
 }
 
-export const CoinFlipAnimation = ({ result, isFlipping, onComplete }: CoinFlipAnimationProps) => {
+export const CoinFlipAnimation = ({ result, isFlipping, onComplete, onDismiss }: CoinFlipAnimationProps) => {
   const [showResult, setShowResult] = useState(false);
   const [flipCount, setFlipCount] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+  const onCompleteRef = useRef(onComplete);
+  
+  // Keep callback ref updated
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
+  // Reset state when animation starts
   useEffect(() => {
     if (isFlipping) {
       setShowResult(false);
       setFlipCount(0);
+      setIsVisible(true);
       
       // Animate through multiple flips
       const flipInterval = setInterval(() => {
         setFlipCount(prev => prev + 1);
-      }, 150);
+      }, 120);
 
       // Stop flipping and show result after animation
       const timer = setTimeout(() => {
         clearInterval(flipInterval);
         setShowResult(true);
-        onComplete?.();
+        onCompleteRef.current?.();
       }, 2000);
 
       return () => {
@@ -34,18 +44,29 @@ export const CoinFlipAnimation = ({ result, isFlipping, onComplete }: CoinFlipAn
         clearTimeout(timer);
       };
     }
-  }, [isFlipping, onComplete]);
+  }, [isFlipping]);
 
-  const currentSide = showResult ? result : (flipCount % 2 === 0 ? "heads" : "tails");
+  // Determine which side to show
+  const currentSide = showResult && result ? result : (flipCount % 2 === 0 ? "heads" : "tails");
+
+  // Handle click to dismiss
+  const handleDismiss = () => {
+    if (showResult && !isFlipping) {
+      setIsVisible(false);
+      setShowResult(false);
+      onDismiss?.();
+    }
+  };
 
   return (
     <AnimatePresence>
-      {(isFlipping || showResult) && (
+      {isVisible && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.5 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm cursor-pointer"
+          onClick={handleDismiss}
         >
           <div className="flex flex-col items-center gap-6">
             {/* Coin Container */}
@@ -62,21 +83,22 @@ export const CoinFlipAnimation = ({ result, isFlipping, onComplete }: CoinFlipAn
                 }}
                 style={{ transformStyle: "preserve-3d" }}
               >
-                {/* Heads Side */}
+              {/* Heads Side */}
                 <div
                   className={cn(
-                    "absolute inset-0 rounded-full flex items-center justify-center text-5xl md:text-6xl font-bold shadow-2xl backface-hidden",
+                    "absolute inset-0 rounded-full flex items-center justify-center text-5xl md:text-6xl font-bold shadow-2xl",
                     "bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-500",
                     "border-4 border-yellow-600"
                   )}
                   style={{
                     backfaceVisibility: "hidden",
-                    transform: currentSide === "heads" || !showResult && flipCount % 2 === 0 ? "rotateY(0deg)" : "rotateY(180deg)",
+                    opacity: currentSide === "heads" ? 1 : 0,
+                    transition: showResult ? "opacity 0.3s" : "opacity 0.05s",
                   }}
                 >
                   <div className="flex flex-col items-center">
-                    <span className="text-yellow-800">H</span>
-                    <span className="text-xs md:text-sm text-yellow-700 font-medium">HEADS</span>
+                    <span className="text-yellow-800 text-6xl md:text-7xl">H</span>
+                    <span className="text-sm md:text-base text-yellow-700 font-bold tracking-wider">HEADS</span>
                   </div>
                   {/* Coin edge effect */}
                   <div className="absolute inset-2 rounded-full border-2 border-yellow-600/30" />
@@ -86,18 +108,19 @@ export const CoinFlipAnimation = ({ result, isFlipping, onComplete }: CoinFlipAn
                 {/* Tails Side */}
                 <div
                   className={cn(
-                    "absolute inset-0 rounded-full flex items-center justify-center text-5xl md:text-6xl font-bold shadow-2xl backface-hidden",
+                    "absolute inset-0 rounded-full flex items-center justify-center text-5xl md:text-6xl font-bold shadow-2xl",
                     "bg-gradient-to-br from-orange-300 via-orange-400 to-orange-500",
                     "border-4 border-orange-600"
                   )}
                   style={{
                     backfaceVisibility: "hidden",
-                    transform: currentSide === "tails" || !showResult && flipCount % 2 === 1 ? "rotateY(0deg)" : "rotateY(180deg)",
+                    opacity: currentSide === "tails" ? 1 : 0,
+                    transition: showResult ? "opacity 0.3s" : "opacity 0.05s",
                   }}
                 >
                   <div className="flex flex-col items-center">
-                    <span className="text-orange-800">T</span>
-                    <span className="text-xs md:text-sm text-orange-700 font-medium">TAILS</span>
+                    <span className="text-orange-800 text-6xl md:text-7xl">T</span>
+                    <span className="text-sm md:text-base text-orange-700 font-bold tracking-wider">TAILS</span>
                   </div>
                   {/* Coin edge effect */}
                   <div className="absolute inset-2 rounded-full border-2 border-orange-600/30" />
