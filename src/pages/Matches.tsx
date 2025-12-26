@@ -1,0 +1,587 @@
+import { useState, useEffect } from "react";
+import { Header } from "@/components/layout/Header";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Flame, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import { Tables } from "@/integrations/supabase/types";
+import { format } from "date-fns";
+import { useSoundEffects } from "@/hooks/useSoundEffects";
+import { CountdownTimer } from "@/components/matches/CountdownTimer";
+import { Confetti } from "@/components/ui/confetti";
+
+type Match = Tables<"matches">;
+
+const TossMatchCard = ({ 
+  match, 
+  onPlaceBet,
+  userBet,
+  onCancelBet,
+  isCancelling
+}: { 
+  match: Match; 
+  onPlaceBet: (match: Match) => void;
+  userBet: any | null;
+  onCancelBet: (betId: string) => void;
+  isCancelling: boolean;
+}) => {
+  const closingTime = match.closing_time ? new Date(match.closing_time) : null;
+  const extraTime = match.extra_time ? new Date(match.extra_time) : null;
+  const startTime = new Date(match.start_time);
+  const maxBet = match.max_bet ? Number(match.max_bet) : 100000;
+  
+  // Win ratio display (for visual purposes)
+  const winRatio = 98;
+
+  return (
+    <Card 
+      className={cn(
+        "relative overflow-hidden bg-gradient-to-br from-card to-card/80 border-border/50 hover:shadow-xl transition-all duration-300",
+        userBet && "ring-2 ring-primary/50"
+      )}
+    >
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-primary/80 to-primary px-4 py-2 text-center">
+        <h3 className="font-display font-bold text-primary-foreground text-sm md:text-base truncate">
+          {match.team_a} vs {match.team_b}
+        </h3>
+      </div>
+
+      <CardContent className="p-4 space-y-4">
+        {/* Teams Section */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Team A */}
+          <div className="flex-1 text-center">
+            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-2 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+              {match.team_a_logo ? (
+                <img 
+                  src={match.team_a_logo} 
+                  alt={match.team_a}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-3xl">🏏</span>
+              )}
+            </div>
+            <p className="text-xs md:text-sm font-medium truncate">{match.team_a}</p>
+          </div>
+
+          {/* VS */}
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-muted-foreground font-display text-lg md:text-xl font-bold">v/s</span>
+          </div>
+
+          {/* Team B */}
+          <div className="flex-1 text-center">
+            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-2 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+              {match.team_b_logo ? (
+                <img 
+                  src={match.team_b_logo} 
+                  alt={match.team_b}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-3xl">🏏</span>
+              )}
+            </div>
+            <p className="text-xs md:text-sm font-medium truncate">{match.team_b}</p>
+          </div>
+        </div>
+
+        {/* Win Ratio Circle */}
+        <div className="flex justify-center">
+          <div className="relative w-16 h-16">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+              <circle
+                cx="18" cy="18" r="15"
+                fill="none"
+                stroke="hsl(var(--muted))"
+                strokeWidth="3"
+              />
+              <circle
+                cx="18" cy="18" r="15"
+                fill="none"
+                stroke="hsl(var(--primary))"
+                strokeWidth="3"
+                strokeDasharray={`${winRatio} ${100 - winRatio}`}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-[8px] text-muted-foreground">Win Ratio</span>
+              <span className="text-sm font-bold text-primary">{winRatio}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Match Info */}
+        <div className="space-y-1 text-center text-sm">
+          <p>
+            <span className="text-muted-foreground">Max Bet: </span>
+            <span className="font-semibold text-primary">₹{maxBet.toLocaleString()}</span>
+            <span className="text-muted-foreground mx-2">|</span>
+            <span className="text-muted-foreground">{format(startTime, "dd MMM hh:mm a")}</span>
+          </p>
+        </div>
+
+        {/* Countdown Timer */}
+        {closingTime && (
+          <CountdownTimer 
+            targetTime={closingTime} 
+            label="CLOSES IN" 
+            className="py-2 px-3 rounded-lg bg-destructive/10"
+          />
+        )}
+
+        {/* Closing & Extra Time */}
+        <div className="space-y-1 text-center text-sm">
+          {closingTime && (
+            <p>
+              <span className="font-medium text-muted-foreground">CLOSING TIME : </span>
+              <span className="font-bold text-destructive">{format(closingTime, "hh:mm a")}</span>
+            </p>
+          )}
+          {extraTime && (
+            <p>
+              <span className="font-medium text-muted-foreground">EXTRA TIME : </span>
+              <span className="font-bold text-primary">{format(extraTime, "hh:mm a")}</span>
+            </p>
+          )}
+        </div>
+
+        {/* User's bet info */}
+        {userBet && (
+          <div className="p-3 rounded-lg bg-primary/10 space-y-2">
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Your Bet</p>
+              <p className="font-semibold text-sm">
+                {userBet.bet_type === 'team_a' ? match.team_a : match.team_b} - ₹{Number(userBet.amount).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Status: <span className={cn(
+                  "font-medium",
+                  userBet.status === 'won' && "text-success",
+                  userBet.status === 'lost' && "text-destructive",
+                  userBet.status === 'pending' && "text-primary",
+                  userBet.status === 'cancelled' && "text-muted-foreground"
+                )}>{userBet.status}</span>
+              </p>
+            </div>
+            {userBet.status === 'pending' && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+                onClick={() => onCancelBet(userBet.id)}
+                disabled={isCancelling}
+              >
+                {isCancelling ? (
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                ) : null}
+                Cancel Bet
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Bet Button */}
+        <Button 
+          variant="default"
+          className="w-full bg-primary hover:bg-primary/90"
+          disabled={!!userBet}
+          onClick={() => onPlaceBet(match)}
+        >
+          {userBet ? "Already Bet" : "Bet Now"}
+        </Button>
+      </CardContent>
+
+      {/* Info Icon */}
+      <button className="absolute top-2 right-2 text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+        <Info className="h-4 w-4" />
+      </button>
+    </Card>
+  );
+};
+
+const Matches = () => {
+  const { user, profile, refreshProfile } = useAuth();
+  const queryClient = useQueryClient();
+  const { playWinSound, playLoseSound, playBetPlacedSound } = useSoundEffects();
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [betType, setBetType] = useState<"team_a" | "team_b" | null>(null);
+  const [betAmount, setBetAmount] = useState("");
+  const [isPlacingBet, setIsPlacingBet] = useState(false);
+  const [isCancellingBet, setIsCancellingBet] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Fetch live matches only
+  const { data: matches = [], isLoading, refetch } = useQuery({
+    queryKey: ["live-matches"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("matches")
+        .select("*")
+        .eq("status", "live")
+        .eq("sport", "cricket")
+        .order("start_time", { ascending: true });
+      
+      if (error) throw error;
+      return data as Match[];
+    },
+  });
+
+  // Fetch user's bets
+  const { data: userBets = [] } = useQuery({
+    queryKey: ["user-bets", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bets")
+        .select("*")
+        .eq("user_id", user!.id);
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Real-time subscriptions
+  useEffect(() => {
+    // Subscribe to matches changes
+    const matchesChannel = supabase
+      .channel('matches-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'matches',
+        },
+        (payload) => {
+          console.log('Match update:', payload);
+          queryClient.invalidateQueries({ queryKey: ['live-matches'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(matchesChannel);
+    };
+  }, [queryClient]);
+
+  // Subscribe to user's bets changes
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const betsChannel = supabase
+      .channel('bets-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bets',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('Bet update:', payload);
+          queryClient.invalidateQueries({ queryKey: ['user-bets', user.id] });
+          
+          // If bet was won, show toast, play sound, confetti and refresh balance
+          if (payload.eventType === 'UPDATE' && (payload.new as any).status === 'won') {
+            playWinSound();
+            setShowConfetti(true);
+            toast.success('🎉 Congratulations! You won your bet!');
+            refreshProfile();
+          } else if (payload.eventType === 'UPDATE' && (payload.new as any).status === 'lost') {
+            playLoseSound();
+            toast.info('Your bet was lost. Better luck next time!');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(betsChannel);
+    };
+  }, [user?.id, queryClient, refreshProfile, playWinSound, playLoseSound]);
+
+  const getUserBetForMatch = (matchId: string) => {
+    // Only return active bets (not cancelled) so user can bet again after cancelling
+    return userBets.find(bet => bet.match_id === matchId && bet.status !== 'cancelled');
+  };
+
+  const handlePlaceBet = (match: Match) => {
+    if (!user) {
+      toast.error("Please login to place bets");
+      return;
+    }
+    setSelectedMatch(match);
+    setBetType(null);
+    setBetAmount("");
+  };
+
+  const submitBet = async () => {
+    if (!selectedMatch || !betType || !betAmount) {
+      toast.error("Please select a team and enter an amount");
+      return;
+    }
+
+    const amount = parseFloat(betAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    const maxBet = selectedMatch.max_bet ? Number(selectedMatch.max_bet) : 100000;
+    if (amount > maxBet) {
+      toast.error(`Maximum bet is ₹${maxBet.toLocaleString()}`);
+      return;
+    }
+
+    if (profile && amount > Number(profile.wallet_balance)) {
+      toast.error("Insufficient balance");
+      return;
+    }
+
+    setIsPlacingBet(true);
+    try {
+      const { data, error } = await supabase.rpc("place_bet", {
+        p_match_id: selectedMatch.id,
+        p_bet_type: betType,
+        p_amount: amount,
+      });
+
+      if (error) throw error;
+
+      playBetPlacedSound();
+      toast.success("Bet placed successfully! Good luck!");
+      setSelectedMatch(null);
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to place bet");
+    } finally {
+      setIsPlacingBet(false);
+    }
+  };
+
+  const cancelBet = async (betId: string) => {
+    if (!confirm("Are you sure you want to cancel this bet? The amount will be refunded.")) return;
+    
+    setIsCancellingBet(true);
+    try {
+      const { error } = await supabase.rpc("cancel_bet", {
+        p_bet_id: betId,
+      });
+
+      if (error) throw error;
+
+      toast.success("Bet cancelled! Amount refunded to your wallet.");
+      queryClient.invalidateQueries({ queryKey: ['user-bets', user?.id] });
+      refreshProfile();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to cancel bet");
+    } finally {
+      setIsCancellingBet(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="pt-20 pb-12 px-4 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
+      <Header />
+      
+      <main className="pt-20 pb-12 px-4">
+        <div className="container mx-auto max-w-6xl">
+          {/* Header */}
+          <div className="mb-8 animate-fade-in text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 mb-4">
+              <Flame className="h-5 w-5 text-primary animate-pulse" />
+              <span className="text-sm font-medium text-primary">LIVE MATCHES</span>
+            </div>
+            <h1 className="font-display text-2xl md:text-4xl font-bold tracking-wide mb-2">
+              Cricket <span className="text-glow">Toss Betting</span>
+            </h1>
+            <p className="text-muted-foreground">Pick your team, place your bet, and win big on the toss!</p>
+          </div>
+
+          {/* Balance Display */}
+          {profile && (
+            <div className="text-center mb-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+              <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-card border border-border">
+                <span className="text-muted-foreground">Your Balance:</span>
+                <span className="font-display font-bold text-xl text-primary">
+                  ₹{Number(profile.wallet_balance).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Matches Grid */}
+          {matches.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+              {matches.map((match, index) => (
+                <div 
+                  key={match.id} 
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${0.1 * index}s` }}
+                >
+                  <TossMatchCard 
+                    match={match} 
+                    onPlaceBet={handlePlaceBet}
+                    userBet={getUserBetForMatch(match.id)}
+                    onCancelBet={cancelBet}
+                    isCancelling={isCancellingBet}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Card className="p-12 text-center animate-fade-in">
+              <Flame className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
+              <h3 className="font-display text-xl font-bold mb-2">No Live Matches</h3>
+              <p className="text-muted-foreground">Check back soon for exciting toss betting opportunities!</p>
+            </Card>
+          )}
+        </div>
+      </main>
+
+      {/* Betting Dialog */}
+      <Dialog open={!!selectedMatch} onOpenChange={() => setSelectedMatch(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Place Your Toss Bet</DialogTitle>
+            <DialogDescription>
+              {selectedMatch?.team_a} vs {selectedMatch?.team_b}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedMatch && (
+            <div className="space-y-4">
+              {/* Team Selection */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  className={cn(
+                    "flex flex-col items-center p-4 rounded-xl border-2 transition-all",
+                    betType === "team_a" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border hover:border-primary/50"
+                  )}
+                  onClick={() => setBetType("team_a")}
+                >
+                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center mb-2">
+                    {selectedMatch.team_a_logo ? (
+                      <img src={selectedMatch.team_a_logo} alt={selectedMatch.team_a} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">🏏</span>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium truncate w-full text-center">{selectedMatch.team_a}</span>
+                </button>
+                <button
+                  className={cn(
+                    "flex flex-col items-center p-4 rounded-xl border-2 transition-all",
+                    betType === "team_b" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border hover:border-primary/50"
+                  )}
+                  onClick={() => setBetType("team_b")}
+                >
+                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center mb-2">
+                    {selectedMatch.team_b_logo ? (
+                      <img src={selectedMatch.team_b_logo} alt={selectedMatch.team_b} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">🏏</span>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium truncate w-full text-center">{selectedMatch.team_b}</span>
+                </button>
+              </div>
+
+              {/* Amount Input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Bet Amount</label>
+                <Input
+                  type="number"
+                  placeholder="Enter amount"
+                  value={betAmount}
+                  onChange={(e) => setBetAmount(e.target.value)}
+                  min="1"
+                  max={selectedMatch.max_bet ? Number(selectedMatch.max_bet) : 100000}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  {profile && (
+                    <span>Balance: ₹{Number(profile.wallet_balance).toLocaleString()}</span>
+                  )}
+                  <span>Max: ₹{(selectedMatch.max_bet ? Number(selectedMatch.max_bet) : 100000).toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Quick Amount Buttons */}
+              <div className="flex gap-2 flex-wrap">
+                {[100, 500, 1000, 5000].map(amount => (
+                  <Button
+                    key={amount}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBetAmount(amount.toString())}
+                  >
+                    ₹{amount}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Potential Winnings */}
+              {betAmount && betType && (
+                <div className="p-4 bg-primary/10 rounded-xl text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Potential Winnings (2x)</p>
+                  <p className="text-2xl font-display font-bold text-primary">
+                    ₹{(parseFloat(betAmount) * 2).toLocaleString()}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setSelectedMatch(null)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={submitBet} 
+              disabled={!betType || !betAmount || isPlacingBet}
+            >
+              {isPlacingBet ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Placing...
+                </>
+              ) : (
+                "Confirm Bet"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default Matches;
