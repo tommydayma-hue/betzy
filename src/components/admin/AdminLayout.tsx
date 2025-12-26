@@ -10,6 +10,7 @@ import {
   Menu,
   Settings,
   MessageSquare,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +24,7 @@ const navItems = [
   { icon: ArrowUpFromLine, label: "Withdrawals", href: "/admin/withdrawals" },
   { icon: Trophy, label: "Matches", href: "/admin/matches" },
   { icon: MessageSquare, label: "Support Tickets", href: "/admin/tickets" },
+  { icon: Bell, label: "Notifications", href: "/admin/notifications" },
   { icon: Settings, label: "Settings", href: "/admin/settings" },
 ];
 

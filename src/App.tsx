@@ -23,6 +23,7 @@ import AdminWithdrawals from "./pages/admin/AdminWithdrawals";
 import AdminMatches from "./pages/admin/AdminMatches";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminTickets from "./pages/admin/AdminTickets";
+import AdminNotifications from "./pages/admin/AdminNotifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +56,7 @@ const App = () => (
             <Route path="/admin/matches" element={<AdminMatches />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="/admin/tickets" element={<AdminTickets />} />
+            <Route path="/admin/notifications" element={<AdminNotifications />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
