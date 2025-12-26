@@ -134,13 +134,27 @@ const CoinFlip = () => {
     }
   }, [user]);
 
-  // Settle round - called once when round ends
+  // Settle round - called once when round ends (uses direct fetch to avoid JWT issues)
   const settleRound = useCallback(async () => {
     if (settlingRef.current) return;
     settlingRef.current = true;
     
     try {
-      await supabase.functions.invoke('settle-coinflip');
+      // Use direct fetch without JWT to call public edge function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/settle-coinflip`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        console.error('Settlement response not ok:', response.status);
+      }
     } catch (error) {
       console.error('Error settling round:', error);
     } finally {
