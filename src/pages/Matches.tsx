@@ -590,109 +590,105 @@ const Matches = () => {
 
       {/* Match Info Dialog */}
       <Dialog open={!!infoMatch} onOpenChange={() => setInfoMatch(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display">Match Information</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader className="pr-8">
+            <DialogTitle className="font-display text-base">Match Information</DialogTitle>
+            <DialogDescription className="text-xs">
               {infoMatch?.team_a} vs {infoMatch?.team_b}
             </DialogDescription>
           </DialogHeader>
 
           {infoMatch && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Custom Info Image */}
               {infoMatch.info_image && (
-                <div className="rounded-lg overflow-hidden">
+                <div className="rounded-lg overflow-hidden max-h-40">
                   <img 
                     src={infoMatch.info_image} 
                     alt="Match Info" 
-                    className="w-full h-auto object-cover"
+                    className="w-full h-full object-cover"
                   />
                 </div>
               )}
 
               {/* Custom Info Text Lines */}
               {(infoMatch.info_text_1 || infoMatch.info_text_2) && (
-                <div className="space-y-2 p-4 bg-primary/10 rounded-lg">
+                <div className="space-y-1 p-3 bg-primary/10 rounded-lg">
                   {infoMatch.info_text_1 && (
-                    <p className="text-sm font-medium text-center">{infoMatch.info_text_1}</p>
+                    <p className="text-xs md:text-sm font-medium text-center">{infoMatch.info_text_1}</p>
                   )}
                   {infoMatch.info_text_2 && (
-                    <p className="text-sm text-muted-foreground text-center">{infoMatch.info_text_2}</p>
+                    <p className="text-xs text-muted-foreground text-center">{infoMatch.info_text_2}</p>
                   )}
                 </div>
               )}
 
-              {/* Teams */}
-              <div className="flex items-center justify-between gap-4">
+              {/* Teams - Compact */}
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 text-center">
-                  <div className="w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+                  <div className="w-12 h-12 mx-auto mb-1 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center border border-border/30">
                     {infoMatch.team_a_logo ? (
                       <img src={infoMatch.team_a_logo} alt={infoMatch.team_a} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-2xl">🏏</span>
+                      <span className="text-xl">🏏</span>
                     )}
                   </div>
-                  <p className="text-sm font-medium">{infoMatch.team_a}</p>
+                  <p className="text-xs font-medium truncate">{infoMatch.team_a}</p>
                 </div>
-                <span className="text-muted-foreground font-display text-lg font-bold">v/s</span>
+                <span className="text-muted-foreground font-display text-sm font-bold">v/s</span>
                 <div className="flex-1 text-center">
-                  <div className="w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+                  <div className="w-12 h-12 mx-auto mb-1 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center border border-border/30">
                     {infoMatch.team_b_logo ? (
                       <img src={infoMatch.team_b_logo} alt={infoMatch.team_b} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-2xl">🏏</span>
+                      <span className="text-xl">🏏</span>
                     )}
                   </div>
-                  <p className="text-sm font-medium">{infoMatch.team_b}</p>
+                  <p className="text-xs font-medium truncate">{infoMatch.team_b}</p>
                 </div>
               </div>
 
-              {/* Match Details */}
-              <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+              {/* Match Details - Compact */}
+              <div className="space-y-1.5 p-3 bg-muted/30 rounded-lg text-xs">
                 {infoMatch.league && (
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">League</span>
                     <span className="font-medium">{infoMatch.league}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Start Time</span>
-                  <span className="font-medium">{format(new Date(infoMatch.start_time), "dd MMM yyyy, hh:mm a")}</span>
+                  <span className="font-medium">{format(new Date(infoMatch.start_time), "dd MMM, hh:mm a")}</span>
                 </div>
                 {infoMatch.closing_time && (
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Betting Closes</span>
                     <span className="font-medium text-destructive">{format(new Date(infoMatch.closing_time), "hh:mm a")}</span>
                   </div>
                 )}
                 {infoMatch.extra_time && (
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Extra Time</span>
                     <span className="font-medium text-primary">{format(new Date(infoMatch.extra_time), "hh:mm a")}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Max Bet</span>
                   <span className="font-medium text-primary">₹{(infoMatch.max_bet ? Number(infoMatch.max_bet) : 100000).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className="font-medium capitalize">{infoMatch.status}</span>
-                </div>
               </div>
 
-              {/* Betting Info */}
-              <div className="p-4 bg-primary/10 rounded-lg text-center">
-                <p className="text-sm text-muted-foreground mb-1">Win Multiplier</p>
-                <p className="text-2xl font-display font-bold text-primary">2x</p>
-                <p className="text-xs text-muted-foreground mt-1">Bet on the team that wins the toss</p>
+              {/* Betting Info - Compact */}
+              <div className="p-3 bg-primary/10 rounded-lg text-center">
+                <p className="text-xs text-muted-foreground">Win Multiplier</p>
+                <p className="text-xl font-display font-bold text-primary">2x</p>
+                <p className="text-[10px] text-muted-foreground">Bet on the team that wins the toss</p>
               </div>
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setInfoMatch(null)}>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setInfoMatch(null)}>
               Close
             </Button>
           </DialogFooter>
