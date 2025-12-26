@@ -41,6 +41,7 @@ const CoinFlip = () => {
   const [currentRound, setCurrentRound] = useState<Round | null>(null);
   const [currentBet, setCurrentBet] = useState<Bet | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(15);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0); // Difference between server and client time
   
   // Results
   const [pastResults, setPastResults] = useState<{ id: string; result: string; round_number: number }[]>([]);
@@ -56,8 +57,25 @@ const CoinFlip = () => {
   // Refs to prevent duplicate processing
   const processedRoundRef = useRef<string | null>(null);
   const settlingRef = useRef(false);
+  const settlementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const quickAmounts = [10, 50, 100, 500, 1000];
+
+  // Sync server time on mount
+  const syncServerTime = useCallback(async () => {
+    try {
+      const clientNow = Date.now();
+      const { data, error } = await supabase.rpc('get_server_time');
+      if (error) throw error;
+      
+      const serverTime = new Date(data).getTime();
+      const offset = serverTime - clientNow;
+      setServerTimeOffset(offset);
+      console.log('Server time offset:', offset, 'ms');
+    } catch (error) {
+      console.error('Error syncing server time:', error);
+    }
+  }, []);
 
   // Fetch current round from server
   const fetchCurrentRound = useCallback(async () => {
@@ -130,34 +148,54 @@ const CoinFlip = () => {
     }
   }, []);
 
-  // Initial load
+  // Initial load - sync time first, then fetch data
   useEffect(() => {
+    syncServerTime();
     fetchCurrentRound();
     fetchPastResults();
     fetchUserBetHistory();
-  }, [fetchCurrentRound, fetchPastResults, fetchUserBetHistory]);
+    
+    // Settle any pending rounds on page load
+    settleRound();
+  }, [syncServerTime, fetchCurrentRound, fetchPastResults, fetchUserBetHistory, settleRound]);
 
-  // Timer - just updates display, doesn't trigger anything heavy
+  // Timer - uses server time offset for accuracy
   useEffect(() => {
     if (!currentRound) return;
 
     const updateTimer = () => {
-      const now = Date.now();
+      // Use server-adjusted time
+      const serverNow = Date.now() + serverTimeOffset;
       const endTime = new Date(currentRound.ends_at).getTime();
-      const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
+      const remaining = Math.max(0, Math.floor((endTime - serverNow) / 1000));
       setTimeRemaining(remaining);
       
-      // When round ends, trigger settlement once
+      // When round ends, trigger settlement once after a small delay
       if (remaining === 0 && processedRoundRef.current !== currentRound.id) {
         processedRoundRef.current = currentRound.id;
-        settleRound();
+        
+        // Clear any existing timeout
+        if (settlementTimeoutRef.current) {
+          clearTimeout(settlementTimeoutRef.current);
+        }
+        
+        // Delay settlement slightly to ensure round has ended on server
+        settlementTimeoutRef.current = setTimeout(() => {
+          settleRound();
+        }, 500);
       }
     };
 
     updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [currentRound, settleRound]);
+    const interval = setInterval(updateTimer, 100); // More frequent updates for accuracy
+    
+    return () => {
+      clearInterval(interval);
+      if (settlementTimeoutRef.current) {
+        clearTimeout(settlementTimeoutRef.current);
+      }
+    };
+  }, [currentRound, settleRound, serverTimeOffset]);
 
   // Store refs for callbacks to avoid re-subscribing
   const currentRoundRef = useRef(currentRound);
