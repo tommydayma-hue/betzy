@@ -556,10 +556,16 @@ export type Database = {
         Args: { p_result: string; p_round_id: string }
         Returns: Json
       }
-      settle_toss_bets: {
-        Args: { p_match_id: string; p_toss_winner: string }
-        Returns: Json
-      }
+      settle_toss_bets:
+        | { Args: { p_match_id: string; p_toss_winner: string }; Returns: Json }
+        | {
+            Args: {
+              p_match_id: string
+              p_toss_time?: string
+              p_toss_winner: string
+            }
+            Returns: Json
+          }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
