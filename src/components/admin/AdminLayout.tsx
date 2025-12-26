@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   Menu,
   Settings,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,6 +22,7 @@ const navItems = [
   { icon: ArrowDownToLine, label: "Deposits", href: "/admin/deposits" },
   { icon: ArrowUpFromLine, label: "Withdrawals", href: "/admin/withdrawals" },
   { icon: Trophy, label: "Matches", href: "/admin/matches" },
+  { icon: MessageSquare, label: "Support Tickets", href: "/admin/tickets" },
   { icon: Settings, label: "Settings", href: "/admin/settings" },
 ];
 

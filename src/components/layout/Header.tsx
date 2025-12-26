@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Wallet, Menu, X, LogOut, User, History } from "lucide-react";
+import { Wallet, Menu, X, LogOut, User, History, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -106,6 +106,12 @@ export const Header = () => {
                         History
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/support" className="cursor-pointer text-gray-700">
+                        <HelpCircle className="h-4 w-4 mr-2 text-gray-500" />
+                        Help & Support
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-gray-200" />
                     <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600">
                       <LogOut className="h-4 w-4 mr-2" />
@@ -187,6 +193,13 @@ export const Header = () => {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     History
+                  </Link>
+                  <Link 
+                    to="/support" 
+                    className="px-4 py-3 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Help & Support
                   </Link>
                   <div className="px-4 pt-2">
                     <button 
