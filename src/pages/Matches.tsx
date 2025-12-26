@@ -154,13 +154,13 @@ const TossMatchCard = ({
         <div className="flex justify-center gap-3 text-xs md:text-sm">
           {closingTime && (
             <p className="flex items-center gap-1">
-              <span className="text-muted-foreground">Close:</span>
+              <span className="text-muted-foreground">Close Time 100P:</span>
               <span className="font-semibold text-destructive">{format(closingTime, "hh:mm a")}</span>
             </p>
           )}
           {extraTime && (
             <p className="flex items-center gap-1">
-              <span className="text-muted-foreground">Extra:</span>
+              <span className="text-muted-foreground">Extra Time 95P:</span>
               <span className="font-semibold text-primary">{format(extraTime, "hh:mm a")}</span>
             </p>
           )}
