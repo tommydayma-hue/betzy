@@ -23,13 +23,15 @@ const TossMatchCard = ({
   onPlaceBet,
   userBet,
   onCancelBet,
-  isCancelling
+  isCancelling,
+  onShowInfo
 }: { 
   match: Match; 
   onPlaceBet: (match: Match) => void;
   userBet: any | null;
   onCancelBet: (betId: string) => void;
   isCancelling: boolean;
+  onShowInfo: (match: Match) => void;
 }) => {
   const closingTime = match.closing_time ? new Date(match.closing_time) : null;
   const extraTime = match.extra_time ? new Date(match.extra_time) : null;
@@ -202,7 +204,10 @@ const TossMatchCard = ({
       </CardContent>
 
       {/* Info Icon */}
-      <button className="absolute top-2 right-2 text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+      <button 
+        className="absolute top-2 right-2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+        onClick={() => onShowInfo(match)}
+      >
         <Info className="h-4 w-4" />
       </button>
     </Card>
@@ -214,6 +219,7 @@ const Matches = () => {
   const queryClient = useQueryClient();
   const { playWinSound, playLoseSound, playBetPlacedSound } = useSoundEffects();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [infoMatch, setInfoMatch] = useState<Match | null>(null);
   const [betType, setBetType] = useState<"team_a" | "team_b" | null>(null);
   const [betAmount, setBetAmount] = useState("");
   const [isPlacingBet, setIsPlacingBet] = useState(false);
@@ -449,6 +455,7 @@ const Matches = () => {
                     userBet={getUserBetForMatch(match.id)}
                     onCancelBet={cancelBet}
                     isCancelling={isCancellingBet}
+                    onShowInfo={setInfoMatch}
                   />
                 </div>
               ))}
@@ -576,6 +583,94 @@ const Matches = () => {
               ) : (
                 "Confirm Bet"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Match Info Dialog */}
+      <Dialog open={!!infoMatch} onOpenChange={() => setInfoMatch(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Match Information</DialogTitle>
+            <DialogDescription>
+              {infoMatch?.team_a} vs {infoMatch?.team_b}
+            </DialogDescription>
+          </DialogHeader>
+
+          {infoMatch && (
+            <div className="space-y-4">
+              {/* Teams */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 text-center">
+                  <div className="w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+                    {infoMatch.team_a_logo ? (
+                      <img src={infoMatch.team_a_logo} alt={infoMatch.team_a} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">🏏</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium">{infoMatch.team_a}</p>
+                </div>
+                <span className="text-muted-foreground font-display text-lg font-bold">v/s</span>
+                <div className="flex-1 text-center">
+                  <div className="w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+                    {infoMatch.team_b_logo ? (
+                      <img src={infoMatch.team_b_logo} alt={infoMatch.team_b} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">🏏</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium">{infoMatch.team_b}</p>
+                </div>
+              </div>
+
+              {/* Match Details */}
+              <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                {infoMatch.league && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">League</span>
+                    <span className="font-medium">{infoMatch.league}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Start Time</span>
+                  <span className="font-medium">{format(new Date(infoMatch.start_time), "dd MMM yyyy, hh:mm a")}</span>
+                </div>
+                {infoMatch.closing_time && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Betting Closes</span>
+                    <span className="font-medium text-destructive">{format(new Date(infoMatch.closing_time), "hh:mm a")}</span>
+                  </div>
+                )}
+                {infoMatch.extra_time && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Extra Time</span>
+                    <span className="font-medium text-primary">{format(new Date(infoMatch.extra_time), "hh:mm a")}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Max Bet</span>
+                  <span className="font-medium text-primary">₹{(infoMatch.max_bet ? Number(infoMatch.max_bet) : 100000).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status</span>
+                  <span className="font-medium capitalize">{infoMatch.status}</span>
+                </div>
+              </div>
+
+              {/* Betting Info */}
+              <div className="p-4 bg-primary/10 rounded-lg text-center">
+                <p className="text-sm text-muted-foreground mb-1">Win Multiplier</p>
+                <p className="text-2xl font-display font-bold text-primary">2x</p>
+                <p className="text-xs text-muted-foreground mt-1">Bet on the team that wins the toss</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInfoMatch(null)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
