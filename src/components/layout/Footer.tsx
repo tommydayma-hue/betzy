@@ -21,7 +21,7 @@ export const Footer = () => {
 
           {/* Games */}
           <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Games</h4>
+            <p className="font-semibold text-gray-900 mb-4">Games</p>
             <ul className="space-y-2 text-sm text-gray-500">
               <li>
                 <Link to="/matches" className="hover:text-blue-600 transition-colors">
@@ -38,7 +38,7 @@ export const Footer = () => {
 
           {/* Account */}
           <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Account</h4>
+            <p className="font-semibold text-gray-900 mb-4">Account</p>
             <ul className="space-y-2 text-sm text-gray-500">
               <li>
                 <Link to="/login" className="hover:text-blue-600 transition-colors">
@@ -60,7 +60,7 @@ export const Footer = () => {
 
           {/* Support */}
           <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Support</h4>
+            <p className="font-semibold text-gray-900 mb-4">Support</p>
             <ul className="space-y-2 text-sm text-gray-500">
               <li>
                 <Link to="/terms" className="hover:text-blue-600 transition-colors">

@@ -152,7 +152,7 @@ export const HeroSection = () => {
                     <feature.icon className="h-7 w-7 text-blue-600" />
                   </div>
                   <div className="text-center">
-                    <h3 className="font-semibold text-lg text-gray-900 mb-1">{feature.title}</h3>
+                    <p className="font-semibold text-lg text-gray-900 mb-1">{feature.title}</p>
                     <p className="text-sm text-gray-500">{feature.desc}</p>
                   </div>
                 </div>
