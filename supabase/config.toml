@@ -1,1 +1,4 @@
 project_id = "oyhhkwrhccbclzhyflyq"
+
+[functions.settle-coinflip]
+verify_jwt = false
