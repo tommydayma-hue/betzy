@@ -510,6 +510,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_server_time: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
