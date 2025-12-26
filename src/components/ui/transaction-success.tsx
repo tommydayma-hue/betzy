@@ -6,12 +6,23 @@ import { useSoundEffects } from "@/hooks/useSoundEffects";
 interface TransactionSuccessProps {
   isVisible: boolean;
   amount: number;
+  type?: "deposit" | "withdrawal";
   onComplete?: () => void;
 }
 
-export const TransactionSuccess = ({ isVisible, amount, onComplete }: TransactionSuccessProps) => {
+export const TransactionSuccess = ({ isVisible, amount, type = "deposit", onComplete }: TransactionSuccessProps) => {
   const [showBalance, setShowBalance] = useState(false);
   const { playTransactionSuccessSound } = useSoundEffects();
+
+  const isWithdrawal = type === "withdrawal";
+  const title = isWithdrawal ? "Withdrawal Requested!" : "Deposit Successful!";
+  const subtitle = isWithdrawal 
+    ? "Your request is being processed" 
+    : "Your wallet has been credited";
+  const amountPrefix = isWithdrawal ? "-" : "+";
+  const balanceText = isWithdrawal 
+    ? "Processing within 24 hours" 
+    : "Wallet balance updated";
 
   useEffect(() => {
     if (isVisible) {
@@ -113,10 +124,10 @@ export const TransactionSuccess = ({ isVisible, amount, onComplete }: Transactio
           transition={{ delay: 0.5 }}
         >
           <h2 className="text-2xl font-bold text-foreground mb-2">
-            Deposit Successful!
+            {title}
           </h2>
           <p className="text-muted-foreground">
-            Your wallet has been credited
+            {subtitle}
           </p>
         </motion.div>
 
@@ -136,7 +147,7 @@ export const TransactionSuccess = ({ isVisible, amount, onComplete }: Transactio
               animate={{ opacity: 1 }}
               transition={{ delay: 0.9 }}
             >
-              +₹{amount.toLocaleString()}
+              {amountPrefix}₹{amount.toLocaleString()}
             </motion.span>
           </div>
         </motion.div>
@@ -156,7 +167,7 @@ export const TransactionSuccess = ({ isVisible, amount, onComplete }: Transactio
               >
                 <Sparkles className="w-4 h-4" />
               </motion.div>
-              <span className="text-sm font-medium">Wallet balance updated</span>
+              <span className="text-sm font-medium">{balanceText}</span>
             </motion.div>
           )}
         </AnimatePresence>

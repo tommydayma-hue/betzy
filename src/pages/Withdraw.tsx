@@ -274,6 +274,7 @@ const Withdraw = () => {
       <TransactionSuccess
         isVisible={showSuccess}
         amount={successAmount}
+        type="withdrawal"
         onComplete={handleSuccessComplete}
       />
 
