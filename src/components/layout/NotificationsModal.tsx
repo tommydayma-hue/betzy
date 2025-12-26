@@ -49,10 +49,13 @@ export const NotificationsModal = () => {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <button className="relative p-2.5 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">
+        <button 
+          className="relative p-2.5 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors"
+          aria-label="Open notifications"
+        >
           <Bell className="h-5 w-5 text-blue-600" />
           {hasUnread && (
-            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" aria-hidden="true" />
           )}
         </button>
       </DialogTrigger>
