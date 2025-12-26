@@ -37,6 +37,8 @@ const TossMatchCard = ({
   const extraTime = match.extra_time ? new Date(match.extra_time) : null;
   const startTime = new Date(match.start_time);
   const maxBet = match.max_bet ? Number(match.max_bet) : 100000;
+  const isCompleted = match.status === 'completed';
+  const tossWinnerName = match.toss_winner === 'team_a' ? match.team_a : match.toss_winner === 'team_b' ? match.team_b : null;
   
   // Win ratio display (for visual purposes)
   const winRatio = 98;
@@ -199,15 +201,22 @@ const TossMatchCard = ({
           </div>
         )}
 
-        {/* Bet Button */}
-        <Button 
-          variant="default"
-          className="w-full bg-primary hover:bg-primary/90"
-          disabled={!!userBet}
-          onClick={() => onPlaceBet(match)}
-        >
-          {userBet ? "Already Bet" : "Bet Now"}
-        </Button>
+        {/* Bet Button or Completed Status */}
+        {isCompleted ? (
+          <div className="p-2.5 rounded-lg bg-muted/50 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Toss Winner</p>
+            <p className="font-semibold text-sm text-primary">{tossWinnerName || "Not announced"}</p>
+          </div>
+        ) : (
+          <Button 
+            variant="default"
+            className="w-full bg-primary hover:bg-primary/90"
+            disabled={!!userBet}
+            onClick={() => onPlaceBet(match)}
+          >
+            {userBet ? "Already Bet" : "Bet Now"}
+          </Button>
+        )}
       </CardContent>
 
     </Card>
@@ -225,9 +234,10 @@ const Matches = () => {
   const [isPlacingBet, setIsPlacingBet] = useState(false);
   const [isCancellingBet, setIsCancellingBet] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [activeTab, setActiveTab] = useState<"live" | "closed">("live");
 
-  // Fetch live matches only
-  const { data: matches = [], isLoading, refetch } = useQuery({
+  // Fetch live matches
+  const { data: liveMatches = [], isLoading: loadingLive } = useQuery({
     queryKey: ["live-matches"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -241,6 +251,26 @@ const Matches = () => {
       return data as Match[];
     },
   });
+
+  // Fetch closed/completed matches
+  const { data: closedMatches = [], isLoading: loadingClosed } = useQuery({
+    queryKey: ["closed-matches"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("matches")
+        .select("*")
+        .eq("status", "completed")
+        .eq("sport", "cricket")
+        .order("start_time", { ascending: false })
+        .limit(20);
+      
+      if (error) throw error;
+      return data as Match[];
+    },
+  });
+
+  const matches = activeTab === "live" ? liveMatches : closedMatches;
+  const isLoading = activeTab === "live" ? loadingLive : loadingClosed;
 
   // Fetch user's bets
   const { data: userBets = [] } = useQuery({
@@ -369,7 +399,7 @@ const Matches = () => {
       playBetPlacedSound();
       toast.success("Bet placed successfully! Good luck!");
       setSelectedMatch(null);
-      refetch();
+      queryClient.invalidateQueries({ queryKey: ['live-matches'] });
     } catch (error: any) {
       toast.error(error.message || "Failed to place bet");
     } finally {
@@ -417,23 +447,53 @@ const Matches = () => {
       <main className="pt-20 pb-12 px-4">
         <div className="container mx-auto max-w-6xl">
           {/* Header */}
-          <div className="mb-8 animate-fade-in text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 mb-4">
-              <Flame className="h-5 w-5 text-primary animate-pulse" />
-              <span className="text-sm font-medium text-primary">LIVE MATCHES</span>
+          <div className="mb-6 animate-fade-in text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-destructive/30 bg-destructive/5 mb-4">
+              <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+              <span className="text-sm font-medium text-destructive">Live Bet</span>
             </div>
-            <h1 className="font-display text-2xl md:text-4xl font-bold tracking-wide mb-2">
-              Cricket <span className="text-glow">Toss Betting</span>
+            <h1 className="font-display text-xl md:text-3xl font-bold tracking-wide mb-2 italic">
+              Real-Time Betting Experience
             </h1>
-            <p className="text-muted-foreground">Pick your team, place your bet, and win big on the toss!</p>
+            <p className="text-muted-foreground text-sm md:text-base">
+              Join the action with live odds and real-time updates. Stay ahead with instant insights for smart betting.
+            </p>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex justify-center mb-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+            <div className="inline-flex rounded-lg border border-border overflow-hidden">
+              <button
+                onClick={() => setActiveTab("live")}
+                className={cn(
+                  "px-5 py-2.5 text-sm font-medium transition-colors",
+                  activeTab === "live" 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-background hover:bg-muted text-muted-foreground"
+                )}
+              >
+                LIVE BETS
+              </button>
+              <button
+                onClick={() => setActiveTab("closed")}
+                className={cn(
+                  "px-5 py-2.5 text-sm font-medium transition-colors border-l border-border",
+                  activeTab === "closed" 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-background hover:bg-muted text-muted-foreground"
+                )}
+              >
+                CLOSE BETS LIST
+              </button>
+            </div>
           </div>
 
           {/* Balance Display */}
           {profile && (
-            <div className="text-center mb-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-              <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-card border border-border">
-                <span className="text-muted-foreground">Your Balance:</span>
-                <span className="font-display font-bold text-xl text-primary">
+            <div className="text-center mb-6 animate-fade-in" style={{ animationDelay: "0.15s" }}>
+              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-card border border-border">
+                <span className="text-muted-foreground text-sm">Your Balance:</span>
+                <span className="font-display font-bold text-lg text-primary">
                   ₹{Number(profile.wallet_balance).toLocaleString()}
                 </span>
               </div>
@@ -460,11 +520,21 @@ const Matches = () => {
                 </div>
               ))}
             </div>
+          ) : isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
           ) : (
             <Card className="p-12 text-center animate-fade-in">
               <Flame className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-              <h3 className="font-display text-xl font-bold mb-2">No Live Matches</h3>
-              <p className="text-muted-foreground">Check back soon for exciting toss betting opportunities!</p>
+              <h3 className="font-display text-xl font-bold mb-2">
+                {activeTab === "live" ? "No Live Matches" : "No Closed Matches"}
+              </h3>
+              <p className="text-muted-foreground">
+                {activeTab === "live" 
+                  ? "Check back soon for exciting toss betting opportunities!" 
+                  : "No completed matches yet."}
+              </p>
             </Card>
           )}
         </div>
