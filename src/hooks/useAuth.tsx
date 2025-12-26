@@ -29,7 +29,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const phoneToEmail = (phone: string): string => {
   // Remove any non-digit characters
   const cleanPhone = phone.replace(/\D/g, '');
-  return `${cleanPhone}@betzy.app`;
+  return `${cleanPhone}@royall11.app`;
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {

@@ -42,7 +42,7 @@ export const CTASection = () => {
           </h2>
           
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Join Betzy today and experience the thrill of winning. 
+            Join Royall11 today and experience the thrill of winning. 
             Sign up in seconds and claim your welcome bonus.
           </p>
 
