@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, Trophy, Upload, Crown, CheckCircle2, Clock, IndianRupee } from "lucide-react";
+import { Plus, Edit, Trash2, Trophy, Upload, Crown, CheckCircle2, Clock, IndianRupee, Users, Eye } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -18,6 +19,18 @@ interface BetTotals {
   team_b_total: number;
   team_a_count: number;
   team_b_count: number;
+}
+
+interface MatchBet {
+  id: string;
+  user_id: string;
+  bet_type: string;
+  amount: number;
+  odds: number;
+  potential_winnings: number;
+  status: string;
+  created_at: string;
+  username: string | null;
 }
 
 type MatchStatus = "upcoming" | "live" | "completed" | "cancelled";
@@ -102,6 +115,10 @@ const AdminMatchesContent = () => {
   const [betTotals, setBetTotals] = useState<BetTotals | null>(null);
   const [loadingBetTotals, setLoadingBetTotals] = useState(false);
   const [settleDeadline, setSettleDeadline] = useState("");
+  const [betsDialogOpen, setBetsDialogOpen] = useState(false);
+  const [viewingMatch, setViewingMatch] = useState<Match | null>(null);
+  const [matchBets, setMatchBets] = useState<MatchBet[]>([]);
+  const [loadingBets, setLoadingBets] = useState(false);
   
   const fileInputARef = useRef<HTMLInputElement>(null);
   const fileInputBRef = useRef<HTMLInputElement>(null);
@@ -265,6 +282,71 @@ const AdminMatchesContent = () => {
     setLoadingBetTotals(false);
   };
 
+  const openBetsDialog = async (match: Match) => {
+    setViewingMatch(match);
+    setBetsDialogOpen(true);
+    setMatchBets([]);
+    setLoadingBets(true);
+
+    // Fetch all bets for this match with user profiles
+    const { data: bets, error } = await supabase
+      .from("bets")
+      .select("id, user_id, bet_type, amount, odds, potential_winnings, status, created_at")
+      .eq("match_id", match.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching bets:", error);
+      toast.error("Failed to fetch bets");
+      setLoadingBets(false);
+      return;
+    }
+
+    if (!bets || bets.length === 0) {
+      setMatchBets([]);
+      setLoadingBets(false);
+      return;
+    }
+
+    // Fetch usernames for all users
+    const userIds = [...new Set(bets.map(bet => bet.user_id))];
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("user_id, username")
+      .in("user_id", userIds);
+
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
+    }
+
+    const profileMap = new Map(profiles?.map(p => [p.user_id, p.username]) || []);
+
+    const betsWithUsernames: MatchBet[] = bets.map(bet => ({
+      ...bet,
+      username: profileMap.get(bet.user_id) || null,
+    }));
+
+    setMatchBets(betsWithUsernames);
+    setLoadingBets(false);
+  };
+
+  const getBetStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Badge className="bg-warning/20 text-warning">Pending</Badge>;
+      case "won":
+        return <Badge className="bg-success/20 text-success">Won</Badge>;
+      case "lost":
+        return <Badge className="bg-destructive/20 text-destructive">Lost</Badge>;
+      case "refunded":
+        return <Badge className="bg-primary/20 text-primary">Refunded</Badge>;
+      case "cancelled":
+        return <Badge variant="secondary">Cancelled</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
   const handleSave = async () => {
     if (!formData.team_a || !formData.team_b || !formData.start_time) {
       toast.error("Please fill in all required fields");
@@ -415,6 +497,7 @@ const AdminMatchesContent = () => {
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Match</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Times</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Max Bet</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Bets</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Toss Winner</th>
                   <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
@@ -459,6 +542,17 @@ const AdminMatchesContent = () => {
                     </td>
                     <td className="py-3 px-4 text-sm font-medium">
                       ₹{(match.max_bet || 100000).toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openBetsDialog(match)}
+                        className="flex items-center gap-1"
+                      >
+                        <Eye className="h-3 w-3" />
+                        View Bets
+                      </Button>
                     </td>
                     <td className="py-3 px-4">{getStatusBadge(match.status, match.toss_winner)}</td>
                     <td className="py-3 px-4">
@@ -891,6 +985,130 @@ const AdminMatchesContent = () => {
               {settling && (
                 <div className="text-center text-sm text-muted-foreground">
                   Settling bets and paying winners...
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Bets Dialog */}
+      <Dialog open={betsDialogOpen} onOpenChange={setBetsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Match Bets - {viewingMatch?.team_a} vs {viewingMatch?.team_b}
+            </DialogTitle>
+            <DialogDescription>
+              All participants and their bets for this match
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewingMatch && (
+            <div className="space-y-4">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-accent/30 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Total Bets</p>
+                  <p className="text-2xl font-bold text-primary">{matchBets.length}</p>
+                </div>
+                <div className="bg-accent/30 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">On {viewingMatch.team_a}</p>
+                  <p className="text-lg font-bold text-primary">
+                    ₹{matchBets.filter(b => b.bet_type === 'team_a').reduce((sum, b) => sum + b.amount, 0).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {matchBets.filter(b => b.bet_type === 'team_a').length} bets
+                  </p>
+                </div>
+                <div className="bg-accent/30 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">On {viewingMatch.team_b}</p>
+                  <p className="text-lg font-bold text-primary">
+                    ₹{matchBets.filter(b => b.bet_type === 'team_b').reduce((sum, b) => sum + b.amount, 0).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {matchBets.filter(b => b.bet_type === 'team_b').length} bets
+                  </p>
+                </div>
+              </div>
+
+              {/* Bets Table */}
+              {loadingBets ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : matchBets.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No bets placed on this match yet.
+                </div>
+              ) : (
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Team Chosen</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-right">Odds</TableHead>
+                        <TableHead className="text-right">Potential Win</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Time</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {matchBets.map((bet) => (
+                        <TableRow key={bet.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{bet.username || 'Unknown User'}</p>
+                              <p className="text-xs text-muted-foreground truncate max-w-[120px]">
+                                {bet.user_id.slice(0, 8)}...
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={bet.bet_type === 'team_a' ? 'default' : 'secondary'}>
+                              {bet.bet_type === 'team_a' ? viewingMatch.team_a : viewingMatch.team_b}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            ₹{bet.amount.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {bet.odds}x
+                          </TableCell>
+                          <TableCell className="text-right text-success font-medium">
+                            ₹{bet.potential_winnings.toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            {getBetStatusBadge(bet.status)}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {format(new Date(bet.created_at), "dd MMM hh:mm a")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Total Summary */}
+              {matchBets.length > 0 && (
+                <div className="bg-primary/10 rounded-lg p-4 flex justify-between items-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Amount Bet</p>
+                    <p className="text-xl font-bold text-primary">
+                      ₹{matchBets.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Total Potential Payout</p>
+                    <p className="text-xl font-bold text-success">
+                      ₹{matchBets.reduce((sum, b) => sum + b.potential_winnings, 0).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
