@@ -32,7 +32,7 @@ export const CoinFlipAnimation = ({ result, isFlipping, onComplete, onDismiss }:
         setFlipCount(prev => prev + 1);
       }, 120);
 
-      // Stop flipping and show result after animation
+      // Stop flipping and show result after 2 seconds
       const timer = setTimeout(() => {
         clearInterval(flipInterval);
         setShowResult(true);
@@ -45,6 +45,19 @@ export const CoinFlipAnimation = ({ result, isFlipping, onComplete, onDismiss }:
       };
     }
   }, [isFlipping]);
+
+  // Auto-hide after showing result for 2 seconds
+  useEffect(() => {
+    if (showResult && result) {
+      const hideTimer = setTimeout(() => {
+        setIsVisible(false);
+        setShowResult(false);
+        onDismiss?.();
+      }, 2000);
+
+      return () => clearTimeout(hideTimer);
+    }
+  }, [showResult, result, onDismiss]);
 
   // Determine which side to show
   const currentSide = showResult && result ? result : (flipCount % 2 === 0 ? "heads" : "tails");
