@@ -675,40 +675,48 @@ const Withdraw = () => {
                         {recentWithdrawals.map((withdrawal) => (
                           <div
                             key={withdrawal.id}
-                            className="flex items-center justify-between p-3 bg-accent/30 rounded-lg"
+                            className="p-3 bg-accent/30 rounded-lg"
                           >
-                            <div className="flex items-center gap-3">
-                              {getStatusIcon(withdrawal.status)}
-                              <div>
-                                <p className="font-medium">₹{Math.abs(withdrawal.amount)}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(withdrawal.created_at).toLocaleDateString()}
-                                </p>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {getStatusIcon(withdrawal.status)}
+                                <div>
+                                  <p className="font-medium">₹{Math.abs(withdrawal.amount)}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {new Date(withdrawal.created_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {withdrawal.screenshot_url && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setScreenshotPreview(withdrawal.screenshot_url)}
+                                  >
+                                    <Image className="h-4 w-4 mr-1" />
+                                    Receipt
+                                  </Button>
+                                )}
+                                <span
+                                  className={`text-xs font-medium px-2 py-1 rounded capitalize ${
+                                    withdrawal.status === "completed"
+                                      ? "bg-success/20 text-success"
+                                      : withdrawal.status === "pending"
+                                      ? "bg-warning/20 text-warning"
+                                      : "bg-destructive/20 text-destructive"
+                                  }`}
+                                >
+                                  {withdrawal.status}
+                                </span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              {withdrawal.screenshot_url && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setScreenshotPreview(withdrawal.screenshot_url)}
-                                >
-                                  <Image className="h-4 w-4 mr-1" />
-                                  Receipt
-                                </Button>
-                              )}
-                              <span
-                                className={`text-xs font-medium px-2 py-1 rounded capitalize ${
-                                  withdrawal.status === "completed"
-                                    ? "bg-success/20 text-success"
-                                    : withdrawal.status === "pending"
-                                    ? "bg-warning/20 text-warning"
-                                    : "bg-destructive/20 text-destructive"
-                                }`}
-                              >
-                                {withdrawal.status}
-                              </span>
-                            </div>
+                            {withdrawal.admin_notes && (
+                              <div className="mt-2 pt-2 border-t border-border/50">
+                                <p className="text-xs text-muted-foreground">Admin Note:</p>
+                                <p className="text-sm">{withdrawal.admin_notes}</p>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
