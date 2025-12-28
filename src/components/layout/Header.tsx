@@ -29,16 +29,20 @@ export const Header = () => {
   // Fetch support links from site settings
   useEffect(() => {
     const fetchSupportLinks = async () => {
-      const { data } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", "site_config")
-        .single();
-      
-      if (data?.value && typeof data.value === 'object') {
-        const config = data.value as { telegram_link?: string; whatsapp_link?: string };
-        setTelegramLink(config.telegram_link || "");
-        setWhatsappLink(config.whatsapp_link || "");
+      try {
+        const { data, error } = await supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", "site_config")
+          .maybeSingle();
+        
+        if (!error && data?.value && typeof data.value === 'object') {
+          const config = data.value as { telegram_link?: string; whatsapp_link?: string };
+          setTelegramLink(config.telegram_link || "");
+          setWhatsappLink(config.whatsapp_link || "");
+        }
+      } catch {
+        // Silently handle errors - support links are optional
       }
     };
     fetchSupportLinks();

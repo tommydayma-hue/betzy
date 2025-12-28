@@ -18,19 +18,23 @@ export const Footer = () => {
 
   useEffect(() => {
     const fetchSocialLinks = async () => {
-      const { data } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", "site_config")
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", "site_config")
+          .maybeSingle();
 
-      if (data?.value) {
-        const config = data.value as Record<string, unknown>;
-        setSocialLinks({
-          telegram_link: (config.telegram_link as string) || "",
-          whatsapp_link: (config.whatsapp_link as string) || "",
-          instagram_link: (config.instagram_link as string) || "",
-        });
+        if (!error && data?.value) {
+          const config = data.value as Record<string, unknown>;
+          setSocialLinks({
+            telegram_link: (config.telegram_link as string) || "",
+            whatsapp_link: (config.whatsapp_link as string) || "",
+            instagram_link: (config.instagram_link as string) || "",
+          });
+        }
+      } catch {
+        // Silently handle errors - social links are optional
       }
     };
 
