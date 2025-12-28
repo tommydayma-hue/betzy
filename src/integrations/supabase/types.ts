@@ -430,6 +430,7 @@ export type Database = {
           status: Database["public"]["Enums"]["transaction_status"]
           type: Database["public"]["Enums"]["transaction_type"]
           user_id: string
+          utr_number: string | null
         }
         Insert: {
           admin_notes?: string | null
@@ -444,6 +445,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["transaction_status"]
           type: Database["public"]["Enums"]["transaction_type"]
           user_id: string
+          utr_number?: string | null
         }
         Update: {
           admin_notes?: string | null
@@ -458,6 +460,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["transaction_status"]
           type?: Database["public"]["Enums"]["transaction_type"]
           user_id?: string
+          utr_number?: string | null
         }
         Relationships: []
       }
