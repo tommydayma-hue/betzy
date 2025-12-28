@@ -105,31 +105,6 @@ const TossMatchCard = ({
           </div>
         </div>
 
-        {/* Win Ratio Circle */}
-        <div className="flex justify-center">
-          <div className="relative w-14 h-14 md:w-16 md:h-16">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-              <circle
-                cx="18" cy="18" r="15"
-                fill="none"
-                stroke="hsl(var(--muted))"
-                strokeWidth="3"
-              />
-              <circle
-                cx="18" cy="18" r="15"
-                fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth="3"
-                strokeDasharray={`${winRatio} ${100 - winRatio}`}
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[7px] md:text-[8px] text-muted-foreground">Win Ratio</span>
-              <span className="text-xs md:text-sm font-bold text-primary">{winRatio}%</span>
-            </div>
-          </div>
-        </div>
 
         {/* Match Info */}
         <div className="text-center text-xs md:text-sm">
