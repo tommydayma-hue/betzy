@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { CheckCircle, XCircle, Eye, Clock, ArrowDownToLine, Loader2, RefreshCw } from "lucide-react";
+import { CheckCircle, XCircle, Eye, Clock, ArrowDownToLine, Loader2, RefreshCw, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -29,6 +29,7 @@ const AdminDepositsContent = () => {
   const [selectedDeposit, setSelectedDeposit] = useState<DepositWithUser | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDeposits();
@@ -189,6 +190,7 @@ const AdminDepositsContent = () => {
                 <tr className="border-b border-border">
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">User</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Amount</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Screenshot</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Notes</th>
@@ -203,6 +205,21 @@ const AdminDepositsContent = () => {
                   >
                     <td className="py-3 px-4 text-sm">{deposit.username || "Unknown"}</td>
                     <td className="py-3 px-4 font-display font-bold">₹{deposit.amount}</td>
+                    <td className="py-3 px-4">
+                      {deposit.screenshot_url ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setScreenshotPreview(deposit.screenshot_url)}
+                          className="gap-1"
+                        >
+                          <Image className="h-3 w-3" />
+                          View
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">No image</span>
+                      )}
+                    </td>
                     <td className="py-3 px-4">{getStatusBadge(deposit.status)}</td>
                     <td className="py-3 px-4 text-sm text-muted-foreground">
                       {new Date(deposit.created_at).toLocaleDateString()}
@@ -290,6 +307,24 @@ const AdminDepositsContent = () => {
                 Approve
               </Button>
             </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Screenshot Preview Dialog */}
+      <Dialog open={!!screenshotPreview} onOpenChange={() => setScreenshotPreview(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Payment Screenshot</DialogTitle>
+          </DialogHeader>
+          {screenshotPreview && (
+            <div className="flex items-center justify-center">
+              <img
+                src={screenshotPreview}
+                alt="Payment screenshot"
+                className="max-h-[70vh] rounded-lg border border-border"
+              />
+            </div>
           )}
         </DialogContent>
       </Dialog>
