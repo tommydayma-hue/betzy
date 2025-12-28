@@ -69,7 +69,7 @@ const TossMatchCard = ({
         <div className="flex items-center justify-between gap-2">
           {/* Team A */}
           <div className="flex-1 text-center">
-            <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-1.5 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center border border-border/30">
+            <div className="w-32 h-32 md:w-40 md:h-40 mx-auto mb-1.5 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center border border-border/30">
               {match.team_a_logo ? (
                 <img 
                   src={match.team_a_logo} 
@@ -77,7 +77,7 @@ const TossMatchCard = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-2xl md:text-3xl">🏏</span>
+                <span className="text-4xl md:text-5xl">🏏</span>
               )}
             </div>
             <p className="text-xs md:text-sm font-medium truncate px-1">{match.team_a}</p>
@@ -90,7 +90,7 @@ const TossMatchCard = ({
 
           {/* Team B */}
           <div className="flex-1 text-center">
-            <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-1.5 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center border border-border/30">
+            <div className="w-32 h-32 md:w-40 md:h-40 mx-auto mb-1.5 rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center border border-border/30">
               {match.team_b_logo ? (
                 <img 
                   src={match.team_b_logo} 
@@ -98,7 +98,7 @@ const TossMatchCard = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-2xl md:text-3xl">🏏</span>
+                <span className="text-4xl md:text-5xl">🏏</span>
               )}
             </div>
             <p className="text-xs md:text-sm font-medium truncate px-1">{match.team_b}</p>
