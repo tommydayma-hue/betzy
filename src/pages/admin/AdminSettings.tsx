@@ -31,6 +31,7 @@ interface SiteConfig {
   min_withdrawal: number;
   max_withdrawal: number;
   default_max_bet: number;
+  telegram_link: string;
 }
 
 interface NotificationSettings {
@@ -70,6 +71,7 @@ const AdminSettings = () => {
     min_withdrawal: 100,
     max_withdrawal: 50000,
     default_max_bet: 100000,
+    telegram_link: "",
   });
 
   const [notifications, setNotifications] = useState<NotificationSettings>({
@@ -376,6 +378,19 @@ const AdminSettings = () => {
                   onChange={(e) => setSiteConfig({ ...siteConfig, default_max_bet: Number(e.target.value) })}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="telegram_link">Telegram Support Link</Label>
+              <Input
+                id="telegram_link"
+                placeholder="https://t.me/yourusername"
+                value={siteConfig.telegram_link}
+                onChange={(e) => setSiteConfig({ ...siteConfig, telegram_link: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                This link will be shown in the header for users to contact support via Telegram
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
