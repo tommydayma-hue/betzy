@@ -16,7 +16,7 @@ export const CoinFlipPreview = () => {
             <div className="grid md:grid-cols-2 gap-8">
               {/* Left Content */}
               <div className="p-8 md:p-12 flex flex-col justify-center">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-warning/20 text-warning text-sm font-medium mb-6 w-fit">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-warning/20 text-[hsl(32,95%,22%)] text-sm font-medium mb-6 w-fit">
                   <Sparkles className="h-4 w-4" />
                   Instant Challenge
                 </div>
