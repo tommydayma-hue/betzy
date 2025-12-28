@@ -4,10 +4,9 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { 
-  Copy, CheckCircle, Clock, XCircle, ImageIcon, 
-  ArrowLeft, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight
+  Copy, CheckCircle, Clock, XCircle, ImageIcon,
+  AlertTriangle, RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,24 +26,20 @@ interface PaymentInfo {
   paytm?: string;
 }
 
-const DEMO_SCREENSHOTS = [
-  "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=300&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=300&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1580048915913-4f8f5cb481c4?w=300&h=400&fit=crop",
-];
+import demoUtrScreenshot from "@/assets/demo-utr-screenshot.png";
 
 const Deposit = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [amount, setAmount] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [utrNumber, setUtrNumber] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recentDeposits, setRecentDeposits] = useState<any[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successAmount, setSuccessAmount] = useState(0);
-  const [currentSlide, setCurrentSlide] = useState(0);
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
     upi_id: "",
     qr_code_url: "",
@@ -142,6 +137,11 @@ const Deposit = () => {
       return;
     }
 
+    if (!utrNumber.trim()) {
+      toast.error("Please enter UTR number");
+      return;
+    }
+
     if (!screenshot) {
       toast.error("Please upload payment screenshot");
       return;
@@ -169,6 +169,7 @@ const Deposit = () => {
         amount: depositAmount,
         status: "completed",
         screenshot_url: urlData.publicUrl,
+        utr_number: utrNumber.trim(),
         description: `Deposit of ₹${depositAmount} (auto-approved)`,
         processed_at: new Date().toISOString(),
       });
@@ -186,6 +187,7 @@ const Deposit = () => {
       setShowSuccess(true);
       
       setAmount("");
+      setUtrNumber("");
       setScreenshot(null);
       setPreviewUrl(null);
       fetchRecentDeposits();
@@ -214,14 +216,6 @@ const Deposit = () => {
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
     }
-  };
-
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % DEMO_SCREENSHOTS.length);
-  };
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + DEMO_SCREENSHOTS.length) % DEMO_SCREENSHOTS.length);
   };
 
   if (loading) {
@@ -336,129 +330,111 @@ const Deposit = () => {
 
             {/* Right Column - Demo Screenshots & Form */}
             <div className="space-y-6">
-              {/* Demo Screenshots */}
+              {/* Demo Screenshot */}
               <Card className="bg-white shadow-sm border-gray-200">
                 <CardContent className="p-5">
-                  <h3 className="text-lg font-bold text-red-500 text-center mb-4">Demo Screenshot</h3>
-                  <div className="relative">
-                    <div className="flex items-center justify-center gap-4">
-                      <button
-                        onClick={prevSlide}
-                        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                      >
-                        <ChevronLeft className="h-5 w-5 text-gray-600" />
-                      </button>
-                      <div className="flex gap-3 overflow-hidden">
-                        {DEMO_SCREENSHOTS.map((src, idx) => (
-                          <div
-                            key={idx}
-                            className={cn(
-                              "w-24 h-32 rounded-lg overflow-hidden border-2 transition-all duration-300",
-                              idx === currentSlide ? "border-blue-500 scale-105" : "border-gray-200 opacity-60"
-                            )}
-                          >
-                            <img 
-                              src={src} 
-                              alt={`Demo ${idx + 1}`} 
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        onClick={nextSlide}
-                        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                      >
-                        <ChevronRight className="h-5 w-5 text-gray-600" />
-                      </button>
-                    </div>
-                    <div className="flex justify-center gap-2 mt-3">
-                      {DEMO_SCREENSHOTS.map((_, idx) => (
-                        <div
-                          key={idx}
-                          className={cn(
-                            "w-2 h-2 rounded-full transition-colors",
-                            idx === currentSlide ? "bg-blue-500" : "bg-gray-300"
-                          )}
-                        />
-                      ))}
-                    </div>
+                  <h3 className="text-lg font-bold text-red-500 text-center mb-4">Demo Screenshot - Where to find UTR</h3>
+                  <div className="flex justify-center">
+                    <img 
+                      src={demoUtrScreenshot} 
+                      alt="Demo UTR Screenshot showing where to find UTR number"
+                      className="rounded-lg border-2 border-blue-500 max-w-full h-auto"
+                    />
                   </div>
+                  <p className="text-xs text-center text-gray-500 mt-2">
+                    The UTR number is highlighted in the red box in your payment app
+                  </p>
+                </CardContent>
+              </Card>
 
-                  {/* Deposit Form */}
-                  <div className="mt-6">
-                    <h4 className="font-semibold text-gray-800 mb-3">Deposit Information:</h4>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div>
-                        <Input
-                          type="number"
-                          min={minDeposit}
-                          placeholder={`Enter amount (min ₹${minDeposit})`}
-                          value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
-                          className="h-11 border-gray-300 bg-gray-50"
-                          required
+              {/* Deposit Form */}
+              <Card className="bg-white shadow-sm border-gray-200">
+                <CardContent className="p-5">
+                  <h4 className="font-semibold text-gray-800 mb-3">Deposit Information:</h4>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                      <Input
+                        type="number"
+                        min={minDeposit}
+                        placeholder={`Enter amount (min ₹${minDeposit})`}
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="h-11 border-gray-300 bg-gray-50"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <Input
+                        type="text"
+                        placeholder="Enter UTR Number (Required)"
+                        value={utrNumber}
+                        onChange={(e) => setUtrNumber(e.target.value)}
+                        className="h-11 border-gray-300 bg-gray-50"
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Find UTR in your payment app as shown in the demo screenshot above
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <label
+                        htmlFor="screenshot-upload"
+                        className="flex-1 flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                      >
+                        <span className="text-sm text-gray-600">
+                          {screenshot ? screenshot.name : "Choose File"}
+                        </span>
+                      </label>
+                      <input
+                        id="screenshot-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                      <span className="text-sm text-gray-500">Upload Image</span>
+                    </div>
+
+                    {previewUrl && (
+                      <div className="relative rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          src={previewUrl}
+                          alt="Preview"
+                          className="w-full h-32 object-cover"
                         />
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <label
-                          htmlFor="screenshot-upload"
-                          className="flex-1 flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                        >
-                          <span className="text-sm text-gray-600">
-                            {screenshot ? screenshot.name : "Choose File"}
-                          </span>
-                        </label>
-                        <input
-                          id="screenshot-upload"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleFileChange}
-                        />
-                        <span className="text-sm text-gray-500">Upload Image</span>
-                      </div>
-
-                      {previewUrl && (
-                        <div className="relative rounded-lg overflow-hidden border border-gray-200">
-                          <img
-                            src={previewUrl}
-                            alt="Preview"
-                            className="w-full h-32 object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setScreenshot(null);
-                              setPreviewUrl(null);
-                            }}
-                            className="absolute top-2 right-2 px-2 py-1 bg-red-500 text-white text-xs rounded"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="flex gap-3">
-                        <Button
+                        <button
                           type="button"
-                          variant="outline"
-                          onClick={() => navigate(-1)}
-                          className="flex-1 border-gray-800 text-gray-800 hover:bg-gray-100"
+                          onClick={() => {
+                            setScreenshot(null);
+                            setPreviewUrl(null);
+                          }}
+                          className="absolute top-2 right-2 px-2 py-1 bg-red-500 text-white text-xs rounded"
                         >
-                          Back
-                        </Button>
-                        <Button
-                          type="submit"
-                          disabled={isSubmitting}
-                          className="flex-1 bg-gray-800 hover:bg-gray-900 text-white"
-                        >
-                          {isSubmitting ? "Submitting..." : "Submit"}
-                        </Button>
+                          Remove
+                        </button>
                       </div>
-                    </form>
-                  </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate(-1)}
+                        className="flex-1 border-gray-800 text-gray-800 hover:bg-gray-100"
+                      >
+                        Back
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="flex-1 bg-gray-800 hover:bg-gray-900 text-white"
+                      >
+                        {isSubmitting ? "Submitting..." : "Submit"}
+                      </Button>
+                    </div>
+                  </form>
                 </CardContent>
               </Card>
             </div>

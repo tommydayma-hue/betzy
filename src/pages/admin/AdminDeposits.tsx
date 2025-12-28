@@ -16,6 +16,7 @@ interface DepositWithUser {
   amount: number;
   status: string;
   screenshot_url: string | null;
+  utr_number: string | null;
   created_at: string;
   admin_notes: string | null;
   username: string | null;
@@ -161,6 +162,9 @@ const AdminDepositsContent = () => {
                     <div>
                       <p className="font-display text-xl font-bold text-success">₹{deposit.amount}</p>
                       <p className="text-sm text-muted-foreground">{deposit.username || "Unknown user"}</p>
+                      {deposit.utr_number && (
+                        <p className="text-xs font-mono text-primary">UTR: {deposit.utr_number}</p>
+                      )}
                       <p className="text-xs text-muted-foreground">{new Date(deposit.created_at).toLocaleString()}</p>
                     </div>
                   </div>
@@ -190,6 +194,7 @@ const AdminDepositsContent = () => {
                 <tr className="border-b border-border">
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">User</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Amount</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">UTR Number</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Screenshot</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
@@ -205,6 +210,9 @@ const AdminDepositsContent = () => {
                   >
                     <td className="py-3 px-4 text-sm">{deposit.username || "Unknown"}</td>
                     <td className="py-3 px-4 font-display font-bold">₹{deposit.amount}</td>
+                    <td className="py-3 px-4 text-sm font-mono">
+                      {deposit.utr_number || <span className="text-muted-foreground">-</span>}
+                    </td>
                     <td className="py-3 px-4">
                       {deposit.screenshot_url ? (
                         <Button
@@ -255,11 +263,15 @@ const AdminDepositsContent = () => {
                   <p className="text-sm text-muted-foreground">Amount</p>
                   <p className="font-display text-2xl font-bold text-success">₹{selectedDeposit.amount}</p>
                 </div>
+                <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+                  <p className="text-sm text-muted-foreground">UTR Number</p>
+                  <p className="font-mono font-medium">{selectedDeposit.utr_number || "Not provided"}</p>
+                </div>
                 <div className="p-3 bg-accent/30 rounded-lg">
                   <p className="text-sm text-muted-foreground">Current Balance</p>
                   <p className="font-medium">₹{selectedDeposit.wallet_balance}</p>
                 </div>
-                <div className="p-3 bg-accent/30 rounded-lg">
+                <div className="p-3 bg-accent/30 rounded-lg col-span-2">
                   <p className="text-sm text-muted-foreground">Submitted</p>
                   <p className="font-medium">{new Date(selectedDeposit.created_at).toLocaleString()}</p>
                 </div>
