@@ -17,6 +17,7 @@ const Deposit = lazy(() => import("./pages/Deposit"));
 const Withdraw = lazy(() => import("./pages/Withdraw"));
 const History = lazy(() => import("./pages/History"));
 const BettingHistory = lazy(() => import("./pages/BettingHistory"));
+const Profile = lazy(() => import("./pages/Profile"));
 const Rules = lazy(() => import("./pages/Rules"));
 const Support = lazy(() => import("./pages/Support"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="/withdraw" element={<Withdraw />} />
               <Route path="/history" element={<History />} />
               <Route path="/betting-history" element={<BettingHistory />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/rules" element={<Rules />} />
               <Route path="/support" element={<Support />} />
               {/* Admin Routes */}
