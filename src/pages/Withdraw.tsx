@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpFromLine, CheckCircle, Clock, XCircle, AlertTriangle, Plus, Trash2, CreditCard } from "lucide-react";
+import { ArrowUpFromLine, CheckCircle, Clock, XCircle, AlertTriangle, Plus, Trash2, CreditCard, Image } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +40,7 @@ const Withdraw = () => {
   const [successAmount, setSuccessAmount] = useState(0);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [activeTab, setActiveTab] = useState("withdrawals");
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
 
   // Add Account Form State
   const [accountForm, setAccountForm] = useState({
@@ -684,17 +686,29 @@ const Withdraw = () => {
                                 </p>
                               </div>
                             </div>
-                            <span
-                              className={`text-xs font-medium px-2 py-1 rounded capitalize ${
-                                withdrawal.status === "completed"
-                                  ? "bg-success/20 text-success"
-                                  : withdrawal.status === "pending"
-                                  ? "bg-warning/20 text-warning"
-                                  : "bg-destructive/20 text-destructive"
-                              }`}
-                            >
-                              {withdrawal.status}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              {withdrawal.screenshot_url && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setScreenshotPreview(withdrawal.screenshot_url)}
+                                >
+                                  <Image className="h-4 w-4 mr-1" />
+                                  Receipt
+                                </Button>
+                              )}
+                              <span
+                                className={`text-xs font-medium px-2 py-1 rounded capitalize ${
+                                  withdrawal.status === "completed"
+                                    ? "bg-success/20 text-success"
+                                    : withdrawal.status === "pending"
+                                    ? "bg-warning/20 text-warning"
+                                    : "bg-destructive/20 text-destructive"
+                                }`}
+                              >
+                                {withdrawal.status}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -704,6 +718,24 @@ const Withdraw = () => {
               </Card>
             </TabsContent>
           </Tabs>
+
+          {/* Screenshot Preview Dialog */}
+          <Dialog open={!!screenshotPreview} onOpenChange={() => setScreenshotPreview(null)}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Payment Receipt</DialogTitle>
+              </DialogHeader>
+              {screenshotPreview && (
+                <div className="flex justify-center">
+                  <img 
+                    src={screenshotPreview} 
+                    alt="Payment receipt" 
+                    className="max-h-[70vh] rounded-lg object-contain"
+                  />
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
     </div>

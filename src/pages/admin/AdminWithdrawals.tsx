@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { CheckCircle, XCircle, Eye, Clock, ArrowUpFromLine, Loader2, RefreshCw, Wallet } from "lucide-react";
+import { CheckCircle, XCircle, Eye, Clock, ArrowUpFromLine, Loader2, RefreshCw, Wallet, Upload, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -18,6 +20,7 @@ interface WithdrawalWithUser {
   description: string | null;
   created_at: string;
   admin_notes: string | null;
+  screenshot_url: string | null;
   username: string | null;
   wallet_balance: number;
 }
@@ -29,6 +32,9 @@ const AdminWithdrawalsContent = () => {
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<WithdrawalWithUser | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchWithdrawals();
@@ -71,9 +77,51 @@ const AdminWithdrawalsContent = () => {
     setLoading(false);
   };
 
+  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setPaymentScreenshot(e.target.files[0]);
+    }
+  };
+
+  const uploadScreenshot = async (transactionId: string): Promise<string | null> => {
+    if (!paymentScreenshot) return null;
+    
+    setUploadingScreenshot(true);
+    try {
+      const fileExt = paymentScreenshot.name.split('.').pop();
+      const fileName = `${transactionId}-payment-${Date.now()}.${fileExt}`;
+      const filePath = `withdrawals/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('deposit-screenshots')
+        .upload(filePath, paymentScreenshot);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('deposit-screenshots')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error: any) {
+      console.error("Error uploading screenshot:", error);
+      toast.error("Failed to upload payment screenshot");
+      return null;
+    } finally {
+      setUploadingScreenshot(false);
+    }
+  };
+
   const processWithdrawal = async (approved: boolean) => {
     if (!selectedWithdrawal) return;
     setProcessing(true);
+
+    let screenshotUrl: string | null = null;
+    
+    // Upload screenshot if provided and approved
+    if (approved && paymentScreenshot) {
+      screenshotUrl = await uploadScreenshot(selectedWithdrawal.id);
+    }
 
     const { error } = await supabase.rpc("process_withdrawal", {
       p_transaction_id: selectedWithdrawal.id,
@@ -84,9 +132,18 @@ const AdminWithdrawalsContent = () => {
     if (error) {
       toast.error(error.message || "Failed to process withdrawal");
     } else {
+      // Update screenshot_url if we uploaded one
+      if (screenshotUrl) {
+        await supabase
+          .from('transactions')
+          .update({ screenshot_url: screenshotUrl })
+          .eq('id', selectedWithdrawal.id);
+      }
+      
       toast.success(approved ? "Withdrawal approved - payment sent!" : "Withdrawal rejected");
       setSelectedWithdrawal(null);
       setAdminNotes("");
+      setPaymentScreenshot(null);
       fetchWithdrawals();
     }
     setProcessing(false);
@@ -184,6 +241,7 @@ const AdminWithdrawalsContent = () => {
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Amount</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">UPI</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Payment</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
                 </tr>
               </thead>
@@ -200,6 +258,20 @@ const AdminWithdrawalsContent = () => {
                       {withdrawal.description?.replace("Withdrawal to ", "") || "-"}
                     </td>
                     <td className="py-3 px-4">{getStatusBadge(withdrawal.status)}</td>
+                    <td className="py-3 px-4">
+                      {withdrawal.screenshot_url ? (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setScreenshotPreview(withdrawal.screenshot_url)}
+                        >
+                          <Image className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-sm text-muted-foreground">
                       {new Date(withdrawal.created_at).toLocaleDateString()}
                     </td>
@@ -249,14 +321,35 @@ const AdminWithdrawalsContent = () => {
               </div>
 
               {selectedWithdrawal.status === "pending" && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Admin Notes</p>
-                  <Textarea
-                    placeholder="Add notes (optional)"
-                    value={adminNotes}
-                    onChange={(e) => setAdminNotes(e.target.value)}
-                  />
-                </div>
+                <>
+                  <div>
+                    <Label className="text-sm text-muted-foreground mb-2">Payment Screenshot</Label>
+                    <div className="mt-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleScreenshotChange}
+                        className="cursor-pointer"
+                      />
+                      {paymentScreenshot && (
+                        <p className="text-xs text-success mt-1">
+                          Selected: {paymentScreenshot.name}
+                        </p>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Upload payment confirmation screenshot (optional)
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground mb-2">Admin Notes</Label>
+                    <Textarea
+                      placeholder="Add notes (optional)"
+                      value={adminNotes}
+                      onChange={(e) => setAdminNotes(e.target.value)}
+                    />
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -265,7 +358,7 @@ const AdminWithdrawalsContent = () => {
               <Button
                 variant="destructive"
                 onClick={() => processWithdrawal(false)}
-                disabled={processing}
+                disabled={processing || uploadingScreenshot}
               >
                 {processing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <XCircle className="h-4 w-4 mr-1" />}
                 Reject
@@ -273,12 +366,30 @@ const AdminWithdrawalsContent = () => {
               <Button
                 className="bg-success hover:bg-success/90"
                 onClick={() => processWithdrawal(true)}
-                disabled={processing}
+                disabled={processing || uploadingScreenshot}
               >
-                {processing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+                {(processing || uploadingScreenshot) ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
                 Approve & Pay
               </Button>
             </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Screenshot Preview Dialog */}
+      <Dialog open={!!screenshotPreview} onOpenChange={() => setScreenshotPreview(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Payment Screenshot</DialogTitle>
+          </DialogHeader>
+          {screenshotPreview && (
+            <div className="flex justify-center">
+              <img 
+                src={screenshotPreview} 
+                alt="Payment screenshot" 
+                className="max-h-[70vh] rounded-lg object-contain"
+              />
+            </div>
           )}
         </DialogContent>
       </Dialog>
