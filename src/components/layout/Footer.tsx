@@ -1,6 +1,44 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Send, MessageCircle, Instagram } from "lucide-react";
+
+interface SocialLinks {
+  telegram_link: string;
+  whatsapp_link: string;
+  instagram_link: string;
+}
 
 export const Footer = () => {
+  const [socialLinks, setSocialLinks] = useState<SocialLinks>({
+    telegram_link: "",
+    whatsapp_link: "",
+    instagram_link: "",
+  });
+
+  useEffect(() => {
+    const fetchSocialLinks = async () => {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "site_config")
+        .single();
+
+      if (data?.value) {
+        const config = data.value as Record<string, unknown>;
+        setSocialLinks({
+          telegram_link: (config.telegram_link as string) || "",
+          whatsapp_link: (config.whatsapp_link as string) || "",
+          instagram_link: (config.instagram_link as string) || "",
+        });
+      }
+    };
+
+    fetchSocialLinks();
+  }, []);
+
+  const hasSocialLinks = socialLinks.telegram_link || socialLinks.whatsapp_link || socialLinks.instagram_link;
+
   return (
     <footer className="border-t border-gray-200 bg-white">
       <div className="container mx-auto px-4 py-12">
@@ -78,6 +116,45 @@ export const Footer = () => {
                 </Link>
               </li>
             </ul>
+
+            {/* Social Links */}
+            {hasSocialLinks && (
+              <div className="mt-4 flex items-center gap-3">
+                {socialLinks.telegram_link && (
+                  <a
+                    href={socialLinks.telegram_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-9 h-9 rounded-full bg-[#0088cc] flex items-center justify-center text-white hover:opacity-80 transition-opacity"
+                    title="Telegram"
+                  >
+                    <Send className="h-4 w-4" />
+                  </a>
+                )}
+                {socialLinks.whatsapp_link && (
+                  <a
+                    href={socialLinks.whatsapp_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-9 h-9 rounded-full bg-[#25D366] flex items-center justify-center text-white hover:opacity-80 transition-opacity"
+                    title="WhatsApp"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </a>
+                )}
+                {socialLinks.instagram_link && (
+                  <a
+                    href={socialLinks.instagram_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#fd5949] via-[#d6249f] to-[#285AEB] flex items-center justify-center text-white hover:opacity-80 transition-opacity"
+                    title="Instagram"
+                  >
+                    <Instagram className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
