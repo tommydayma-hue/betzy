@@ -32,6 +32,7 @@ interface SiteConfig {
   max_withdrawal: number;
   default_max_bet: number;
   telegram_link: string;
+  whatsapp_link: string;
 }
 
 interface NotificationSettings {
@@ -72,6 +73,7 @@ const AdminSettings = () => {
     max_withdrawal: 50000,
     default_max_bet: 100000,
     telegram_link: "",
+    whatsapp_link: "",
   });
 
   const [notifications, setNotifications] = useState<NotificationSettings>({
@@ -380,17 +382,32 @@ const AdminSettings = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="telegram_link">Telegram Support Link</Label>
-              <Input
-                id="telegram_link"
-                placeholder="https://t.me/yourusername"
-                value={siteConfig.telegram_link}
-                onChange={(e) => setSiteConfig({ ...siteConfig, telegram_link: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                This link will be shown in the header for users to contact support via Telegram
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="telegram_link">Telegram Support Link</Label>
+                <Input
+                  id="telegram_link"
+                  placeholder="https://t.me/yourusername"
+                  value={siteConfig.telegram_link}
+                  onChange={(e) => setSiteConfig({ ...siteConfig, telegram_link: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Telegram link shown in header
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp_link">WhatsApp Support Link</Label>
+                <Input
+                  id="whatsapp_link"
+                  placeholder="https://wa.me/1234567890"
+                  value={siteConfig.whatsapp_link}
+                  onChange={(e) => setSiteConfig({ ...siteConfig, whatsapp_link: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  WhatsApp link shown in header
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
