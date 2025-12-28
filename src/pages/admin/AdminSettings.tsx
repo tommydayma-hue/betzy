@@ -33,6 +33,7 @@ interface SiteConfig {
   default_max_bet: number;
   telegram_link: string;
   whatsapp_link: string;
+  instagram_link: string;
 }
 
 interface NotificationSettings {
@@ -74,6 +75,7 @@ const AdminSettings = () => {
     default_max_bet: 100000,
     telegram_link: "",
     whatsapp_link: "",
+    instagram_link: "",
   });
 
   const [notifications, setNotifications] = useState<NotificationSettings>({
@@ -405,7 +407,22 @@ const AdminSettings = () => {
                   onChange={(e) => setSiteConfig({ ...siteConfig, whatsapp_link: e.target.value })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  WhatsApp link shown in header
+                  WhatsApp link shown in header & footer
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="instagram_link">Instagram Link</Label>
+                <Input
+                  id="instagram_link"
+                  placeholder="https://instagram.com/yourusername"
+                  value={siteConfig.instagram_link}
+                  onChange={(e) => setSiteConfig({ ...siteConfig, instagram_link: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Instagram link shown in footer
                 </p>
               </div>
             </div>
