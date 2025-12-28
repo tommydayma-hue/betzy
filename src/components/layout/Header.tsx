@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Wallet, Menu, X, LogOut, User, History, HelpCircle, Send } from "lucide-react";
+import { Wallet, Menu, X, LogOut, User, History, HelpCircle, Send, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,24 +21,27 @@ export const Header = () => {
   const [isBalanceUpdating, setIsBalanceUpdating] = useState(false);
   const prevBalanceRef = useRef<number | null>(null);
   const [telegramLink, setTelegramLink] = useState<string>("");
+  const [whatsappLink, setWhatsappLink] = useState<string>("");
 
   const walletBalance = profile?.wallet_balance ?? 0;
   const displayName = profile?.username || user?.email?.split('@')[0] || 'User';
 
-  // Fetch Telegram link from site settings
+  // Fetch support links from site settings
   useEffect(() => {
-    const fetchTelegramLink = async () => {
+    const fetchSupportLinks = async () => {
       const { data } = await supabase
         .from("site_settings")
         .select("value")
         .eq("key", "site_config")
         .single();
       
-      if (data?.value && typeof data.value === 'object' && 'telegram_link' in data.value) {
-        setTelegramLink((data.value as { telegram_link?: string }).telegram_link || "");
+      if (data?.value && typeof data.value === 'object') {
+        const config = data.value as { telegram_link?: string; whatsapp_link?: string };
+        setTelegramLink(config.telegram_link || "");
+        setWhatsappLink(config.whatsapp_link || "");
       }
     };
-    fetchTelegramLink();
+    fetchSupportLinks();
   }, []);
 
   useEffect(() => {
@@ -100,6 +103,17 @@ export const Header = () => {
               >
                 <Send className="h-4 w-4" />
                 Telegram
+              </a>
+            )}
+            {whatsappLink && (
+              <a
+                href={whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-[#25D366] rounded-lg hover:bg-[#20bd5a] transition-colors"
+              >
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
               </a>
             )}
             <NotificationsModal />
@@ -177,6 +191,16 @@ export const Header = () => {
                 className="p-2 text-white bg-[#0088cc] rounded-lg"
               >
                 <Send className="h-5 w-5" />
+              </a>
+            )}
+            {whatsappLink && (
+              <a
+                href={whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 text-white bg-[#25D366] rounded-lg"
+              >
+                <MessageCircle className="h-5 w-5" />
               </a>
             )}
             <NotificationsModal />
