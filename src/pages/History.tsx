@@ -9,6 +9,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   Coins,
   Wallet,
@@ -17,13 +23,20 @@ import {
   ChevronLeft,
   ChevronRight,
   Trophy,
-  Clock,
-  Loader2
+  Loader2,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  List
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Transaction {
   id: string;
@@ -59,7 +72,7 @@ const History = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bets, setBets] = useState<Bet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("bets");
+  const [activeTab, setActiveTab] = useState("all");
   const [walletFilter, setWalletFilter] = useState<"all" | "credit" | "debit">("all");
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,6 +115,10 @@ const History = () => {
     return format(new Date(dateStr), "dd MMM, hh:mm a");
   };
 
+  const formatDateFull = (dateStr: string) => {
+    return format(new Date(dateStr), "dd/MM/yyyy hh:mm a");
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
@@ -142,11 +159,86 @@ const History = () => {
 
   const getCurrentItems = () => {
     switch (activeTab) {
+      case "all": return transactions;
       case "bets": return bets;
       case "deposits": return deposits;
       case "wallet": return walletTx;
       case "coinflip": return coinflipTx;
       default: return [];
+    }
+  };
+
+  // Export to Excel
+  const exportToExcel = () => {
+    try {
+      const data = transactions.map(tx => ({
+        "Date": formatDateFull(tx.created_at),
+        "Type": tx.type.replace(/_/g, " ").toUpperCase(),
+        "Amount": `₹${Math.abs(tx.amount)}`,
+        "Credit/Debit": isCredit(tx) ? "Credit" : "Debit",
+        "Status": tx.status.charAt(0).toUpperCase() + tx.status.slice(1),
+        "Description": tx.description || "-",
+        "Transaction ID": tx.id,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Transactions");
+      
+      // Auto-size columns
+      const colWidths = [
+        { wch: 20 }, // Date
+        { wch: 15 }, // Type
+        { wch: 12 }, // Amount
+        { wch: 12 }, // Credit/Debit
+        { wch: 12 }, // Status
+        { wch: 30 }, // Description
+        { wch: 40 }, // Transaction ID
+      ];
+      ws['!cols'] = colWidths;
+
+      XLSX.writeFile(wb, `transactions_${format(new Date(), "dd-MM-yyyy")}.xlsx`);
+      toast.success("Excel file downloaded!");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export Excel");
+    }
+  };
+
+  // Export to PDF
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF();
+      
+      // Title
+      doc.setFontSize(18);
+      doc.text("Transaction History", 14, 22);
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${format(new Date(), "dd/MM/yyyy hh:mm a")}`, 14, 30);
+
+      // Table data
+      const tableData = transactions.map(tx => [
+        formatDateFull(tx.created_at),
+        tx.type.replace(/_/g, " ").toUpperCase(),
+        `₹${Math.abs(tx.amount)}`,
+        isCredit(tx) ? "Credit" : "Debit",
+        tx.status.charAt(0).toUpperCase() + tx.status.slice(1),
+      ]);
+
+      autoTable(doc, {
+        head: [["Date", "Type", "Amount", "Credit/Debit", "Status"]],
+        body: tableData,
+        startY: 38,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [37, 99, 235] },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+      });
+
+      doc.save(`transactions_${format(new Date(), "dd-MM-yyyy")}.pdf`);
+      toast.success("PDF file downloaded!");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export PDF");
     }
   };
 
@@ -165,6 +257,7 @@ const History = () => {
   const totalPages = getTotalPages(getCurrentItems().length);
 
   const tabItems = [
+    { value: "all", label: "All", icon: List },
     { value: "bets", label: "Bets", icon: Trophy },
     { value: "deposits", label: "Deposits", icon: ArrowDownToLine },
     { value: "wallet", label: "Wallet", icon: Wallet },
@@ -177,9 +270,28 @@ const History = () => {
 
       <main className="pt-16 pb-20">
         <div className="max-w-2xl mx-auto px-4">
-          {/* Page Header */}
-          <div className="py-4">
+          {/* Page Header with Export */}
+          <div className="py-4 flex items-center justify-between">
             <h1 className="text-lg font-semibold text-gray-900">History</h1>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={exportToExcel} className="gap-2 cursor-pointer">
+                  <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                  Export to Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportToPDF} className="gap-2 cursor-pointer">
+                  <FileText className="w-4 h-4 text-red-600" />
+                  Export to PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Tab Navigation - Scrollable on mobile */}
@@ -206,6 +318,54 @@ const History = () => {
 
           {/* Content Area */}
           <div className="mt-4 space-y-3">
+            {/* All Transactions */}
+            {activeTab === "all" && (
+              <>
+                {transactions.length === 0 ? (
+                  <EmptyState icon={List} message="No transactions yet" />
+                ) : (
+                  paginate(transactions, currentPage).map((tx) => {
+                    const isCreditTx = isCredit(tx);
+                    return (
+                      <div key={tx.id} className="bg-white rounded-xl p-4 border border-gray-100">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-10 h-10 rounded-full flex items-center justify-center",
+                              isCreditTx ? "bg-green-50" : "bg-red-50"
+                            )}>
+                              {isCreditTx ? (
+                                <ArrowDownToLine className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <Wallet className="w-5 h-5 text-red-500" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 capitalize">
+                                {tx.type.replace(/_/g, " ")}
+                              </p>
+                              <p className="text-xs text-gray-500">{formatDate(tx.created_at)}</p>
+                              {tx.description && (
+                                <p className="text-xs text-gray-400 truncate max-w-[180px]">{tx.description}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className={cn("font-semibold", isCreditTx ? "text-green-600" : "text-red-600")}>
+                              {isCreditTx ? "+" : "-"}₹{Math.abs(tx.amount)}
+                            </p>
+                            <span className={cn("text-xs px-2 py-0.5 rounded-full", getStatusColor(tx.status))}>
+                              {tx.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </>
+            )}
+
             {/* Bet History */}
             {activeTab === "bets" && (
               <>
