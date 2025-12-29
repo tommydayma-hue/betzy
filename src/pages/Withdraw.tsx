@@ -42,6 +42,11 @@ const Withdraw = () => {
   const [activeTab, setActiveTab] = useState("withdrawals");
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
 
+  // Daily withdrawal limit state
+  const [lastWithdrawalTime, setLastWithdrawalTime] = useState<Date | null>(null);
+  const [canWithdraw, setCanWithdraw] = useState(true);
+  const [timeUntilNextWithdrawal, setTimeUntilNextWithdrawal] = useState<string>("");
+
   // Add Account Form State
   const [accountForm, setAccountForm] = useState({
     account_holder_name: "",
@@ -67,8 +72,59 @@ const Withdraw = () => {
     if (user) {
       fetchRecentWithdrawals();
       fetchBankAccounts();
+      checkDailyWithdrawalLimit();
     }
   }, [user]);
+
+  // Update countdown timer every second
+  useEffect(() => {
+    if (!lastWithdrawalTime) return;
+
+    const updateCountdown = () => {
+      const now = new Date();
+      const nextAllowedTime = new Date(lastWithdrawalTime.getTime() + 24 * 60 * 60 * 1000);
+      const diff = nextAllowedTime.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setCanWithdraw(true);
+        setTimeUntilNextWithdrawal("");
+        return;
+      }
+
+      setCanWithdraw(false);
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeUntilNextWithdrawal(`${hours}h ${minutes}m ${seconds}s`);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [lastWithdrawalTime]);
+
+  const checkDailyWithdrawalLimit = async () => {
+    if (!user) return;
+
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("created_at")
+      .eq("user_id", user.id)
+      .eq("type", "withdrawal")
+      .gte("created_at", twentyFourHoursAgo)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (!error && data && data.length > 0) {
+      setLastWithdrawalTime(new Date(data[0].created_at));
+      setCanWithdraw(false);
+    } else {
+      setCanWithdraw(true);
+      setLastWithdrawalTime(null);
+    }
+  };
 
   const fetchBankAccounts = async () => {
     const { data, error } = await supabase
@@ -188,6 +244,12 @@ const Withdraw = () => {
       return;
     }
 
+    // Check daily limit again before submitting
+    if (!canWithdraw) {
+      toast.error(`You can only make one withdrawal request per 24 hours. Next withdrawal available in ${timeUntilNextWithdrawal}`);
+      return;
+    }
+
     const withdrawAmount = parseFloat(amount);
     if (isNaN(withdrawAmount) || withdrawAmount < 100) {
       toast.error("Minimum withdrawal amount is ₹100");
@@ -232,6 +294,9 @@ const Withdraw = () => {
       setAmount("");
       fetchRecentWithdrawals();
       refreshProfile();
+      // Update the daily limit check
+      setLastWithdrawalTime(new Date());
+      setCanWithdraw(false);
     } catch (error: any) {
       console.error("Withdrawal error:", error);
       toast.error(error.message || "Failed to submit withdrawal request");
@@ -358,11 +423,25 @@ const Withdraw = () => {
                         Add Account
                       </Button>
                     </div>
+                  ) : !canWithdraw ? (
+                    <div className="flex flex-col items-center py-8 text-center">
+                      <Clock className="h-12 w-12 text-warning mb-4" />
+                      <p className="text-lg font-medium mb-2">Daily Limit Reached</p>
+                      <p className="text-muted-foreground mb-4">
+                        You can only make one withdrawal request per 24 hours.
+                      </p>
+                      <div className="bg-warning/10 border border-warning/30 rounded-lg px-6 py-4">
+                        <p className="text-sm text-muted-foreground">Next withdrawal available in:</p>
+                        <p className="text-2xl font-display font-bold text-warning mt-1">
+                          {timeUntilNextWithdrawal}
+                        </p>
+                      </div>
+                    </div>
                   ) : (
                     <form onSubmit={handleSubmit} className="space-y-5">
                       <div className="space-y-2">
                         <Label>Select Account</Label>
-                        <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                        <Select value={selectedAccountId} onValueChange={setSelectedAccountId} disabled={!canWithdraw}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a bank account" />
                           </SelectTrigger>
@@ -390,6 +469,7 @@ const Withdraw = () => {
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
                           required
+                          disabled={!canWithdraw}
                         />
                         <p className="text-xs text-muted-foreground">
                           Maximum: ₹{walletBalance.toFixed(2)}
@@ -402,6 +482,7 @@ const Withdraw = () => {
                           <li>Withdrawals are processed within 24 hours</li>
                           <li>Ensure your account details are correct</li>
                           <li>Minimum withdrawal: ₹100</li>
+                          <li className="text-warning font-medium">Only one withdrawal request allowed per 24 hours</li>
                         </ul>
                       </div>
 
@@ -410,7 +491,7 @@ const Withdraw = () => {
                         variant="neon"
                         className="w-full gap-2"
                         size="lg"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || !canWithdraw}
                       >
                         {isSubmitting ? (
                           <span className="flex items-center gap-2">
