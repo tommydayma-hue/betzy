@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { 
-  CreditCard, Bell, Globe, Loader2, Save, Upload, QrCode, Coins 
+  CreditCard, Bell, Globe, Loader2, Save, Upload, QrCode, Coins, Image 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
@@ -27,6 +27,7 @@ interface PaymentInfo {
 
 interface SiteConfig {
   site_name: string;
+  logo_url: string;
   min_deposit: number;
   min_withdrawal: number;
   max_withdrawal: number;
@@ -56,7 +57,9 @@ const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingQr, setUploadingQr] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
     upi_id: "",
@@ -69,6 +72,7 @@ const AdminSettings = () => {
 
   const [siteConfig, setSiteConfig] = useState<SiteConfig>({
     site_name: "BetMaster",
+    logo_url: "",
     min_deposit: 100,
     min_withdrawal: 100,
     max_withdrawal: 50000,
@@ -179,6 +183,32 @@ const AdminSettings = () => {
       toast.error(`Failed to upload: ${error.message}`);
     } finally {
       setUploadingQr(false);
+    }
+  };
+
+  const uploadLogo = async (file: File) => {
+    setUploadingLogo(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `site-logo-${Date.now()}.${fileExt}`;
+      const filePath = `settings/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('deposit-screenshots')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('deposit-screenshots')
+        .getPublicUrl(filePath);
+
+      setSiteConfig(prev => ({ ...prev, logo_url: publicUrl }));
+      toast.success("Logo uploaded successfully");
+    } catch (error: any) {
+      toast.error(`Failed to upload logo: ${error.message}`);
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -364,6 +394,61 @@ const AdminSettings = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Logo Upload */}
+            <div className="space-y-2">
+              <Label>Site Logo</Label>
+              <div className="flex items-center gap-4">
+                {siteConfig.logo_url ? (
+                  <img
+                    src={siteConfig.logo_url}
+                    alt="Site Logo"
+                    className="w-16 h-16 object-contain rounded-lg border border-border bg-white"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
+                    <Image className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                  >
+                    {uploadingLogo ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-1" />
+                    )}
+                    Upload Logo
+                  </Button>
+                  {siteConfig.logo_url && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => setSiteConfig({ ...siteConfig, logo_url: "" })}
+                    >
+                      Remove Logo
+                    </Button>
+                  )}
+                </div>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Recommended: Square image, 200x200px or larger. Displayed in header.
+              </p>
+            </div>
+
+            <Separator />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="site_name">Site Name</Label>

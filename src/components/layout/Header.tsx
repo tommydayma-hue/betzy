@@ -22,13 +22,15 @@ export const Header = () => {
   const prevBalanceRef = useRef<number | null>(null);
   const [telegramLink, setTelegramLink] = useState<string>("");
   const [whatsappLink, setWhatsappLink] = useState<string>("");
+  const [logoUrl, setLogoUrl] = useState<string>("");
+  const [siteName, setSiteName] = useState<string>("ROYALL11");
 
   const walletBalance = profile?.wallet_balance ?? 0;
   const displayName = profile?.username || user?.email?.split('@')[0] || 'User';
 
-  // Fetch support links from site settings
+  // Fetch support links and logo from site settings
   useEffect(() => {
-    const fetchSupportLinks = async () => {
+    const fetchSiteConfig = async () => {
       try {
         const { data, error } = await supabase
           .from("site_settings")
@@ -37,15 +39,22 @@ export const Header = () => {
           .maybeSingle();
         
         if (!error && data?.value && typeof data.value === 'object') {
-          const config = data.value as { telegram_link?: string; whatsapp_link?: string };
+          const config = data.value as { 
+            telegram_link?: string; 
+            whatsapp_link?: string; 
+            logo_url?: string;
+            site_name?: string;
+          };
           setTelegramLink(config.telegram_link || "");
           setWhatsappLink(config.whatsapp_link || "");
+          setLogoUrl(config.logo_url || "");
+          setSiteName(config.site_name || "ROYALL11");
         }
       } catch {
         // Silently handle errors - support links are optional
       }
     };
-    fetchSupportLinks();
+    fetchSiteConfig();
   }, []);
 
   useEffect(() => {
@@ -69,11 +78,19 @@ export const Header = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-              <span className="font-bold text-lg text-white">B</span>
-            </div>
+            {logoUrl ? (
+              <img 
+                src={logoUrl} 
+                alt={siteName} 
+                className="w-10 h-10 rounded-lg object-contain"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
+                <span className="font-bold text-lg text-white">{siteName.charAt(0)}</span>
+              </div>
+            )}
             <span className="font-bold text-xl tracking-tight text-gray-900 hidden sm:block">
-              ROYALL11
+              {siteName}
             </span>
           </Link>
 
