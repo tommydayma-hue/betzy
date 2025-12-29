@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { Phone, Lock, Eye, EyeOff, User } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -29,6 +30,23 @@ const Register = () => {
     return cleanPhone.length === 10;
   };
 
+  const checkUsernameAvailable = async (username: string): Promise<boolean> => {
+    if (!username.trim()) return true; // Empty username is allowed
+    
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("username", username.trim())
+      .limit(1);
+    
+    if (error) {
+      console.error("Error checking username:", error);
+      return false;
+    }
+    
+    return data.length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -47,6 +65,20 @@ const Register = () => {
       return;
     }
 
+    // Check username availability if provided
+    if (formData.username.trim()) {
+      if (formData.username.trim().length < 3) {
+        toast.error("Username must be at least 3 characters");
+        return;
+      }
+      
+      const isAvailable = await checkUsernameAvailable(formData.username);
+      if (!isAvailable) {
+        toast.error("This username is already taken. Please choose a different one.");
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     const { error } = await signUp(formData.phone, formData.password, formData.username);
@@ -54,6 +86,8 @@ const Register = () => {
     if (error) {
       if (error.message.includes("already registered")) {
         toast.error("This mobile number is already registered. Please login instead.");
+      } else if (error.message.includes("duplicate") || error.message.includes("unique")) {
+        toast.error("This username is already taken. Please choose a different one.");
       } else {
         toast.error(error.message);
       }

@@ -40,6 +40,22 @@ const Profile = () => {
     }
   }, [profile]);
 
+  const checkUsernameAvailable = async (newUsername: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, user_id")
+      .ilike("username", newUsername.trim())
+      .limit(1);
+    
+    if (error) {
+      console.error("Error checking username:", error);
+      return false;
+    }
+    
+    // Allow if no match found, or if the only match is the current user
+    return data.length === 0 || data[0].user_id === user?.id;
+  };
+
   const handleUpdateUsername = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -53,6 +69,19 @@ const Profile = () => {
       return;
     }
 
+    // Skip check if username hasn't changed (case-insensitive)
+    if (username.trim().toLowerCase() === profile?.username?.toLowerCase()) {
+      toast.info("Username is the same");
+      return;
+    }
+
+    // Check if username is available
+    const isAvailable = await checkUsernameAvailable(username);
+    if (!isAvailable) {
+      toast.error("This username is already taken. Please choose a different one.");
+      return;
+    }
+
     setSavingUsername(true);
     try {
       const { error } = await supabase
@@ -60,7 +89,12 @@ const Profile = () => {
         .update({ username: username.trim() })
         .eq("user_id", user?.id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes("duplicate") || error.message.includes("unique") || error.code === "23505") {
+          throw new Error("This username is already taken. Please choose a different one.");
+        }
+        throw error;
+      }
 
       await refreshProfile();
       toast.success("Username updated successfully");
