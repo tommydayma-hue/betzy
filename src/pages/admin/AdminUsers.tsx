@@ -5,9 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, User, Loader2, RefreshCw } from "lucide-react";
+import { Search, User, Loader2, RefreshCw, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface UserWithRole {
   id: string;
@@ -99,6 +107,54 @@ const AdminUsersContent = () => {
       toast.success("Balance updated");
       fetchUsers();
     }
+  };
+
+  // Password reset state
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+
+  const generateRandomPassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    let password = "";
+    for (let i = 0; i < 8; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  const openResetDialog = (user: UserWithRole) => {
+    setSelectedUser(user);
+    setNewPassword(generateRandomPassword());
+    setResetDialogOpen(true);
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedUser || !newPassword) return;
+
+    setIsResettingPassword(true);
+    try {
+      // Use admin API to update user password
+      const { error } = await supabase.functions.invoke("admin-reset-password", {
+        body: { userId: selectedUser.user_id, newPassword },
+      });
+
+      if (error) throw error;
+
+      toast.success("Password reset successfully! Share the new password with the user.");
+      setResetDialogOpen(false);
+    } catch (error: any) {
+      console.error("Error resetting password:", error);
+      toast.error(error.message || "Failed to reset password");
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
+  const copyPassword = () => {
+    navigator.clipboard.writeText(newPassword);
+    toast.success("Password copied to clipboard!");
   };
 
   const filteredUsers = users.filter(
@@ -193,6 +249,14 @@ const AdminUsersContent = () => {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => openResetDialog(user)}
+                        >
+                          <KeyRound className="h-4 w-4 mr-1" />
+                          Reset Password
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
                             const newBalance = prompt("Enter new balance:", user.wallet_balance.toString());
                             if (newBalance) updateBalance(user.user_id, parseFloat(newBalance));
@@ -222,6 +286,59 @@ const AdminUsersContent = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Password Reset Dialog */}
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5" />
+              Reset User Password
+            </DialogTitle>
+            <DialogDescription>
+              Reset password for user: <strong>{selectedUser?.username || "Unknown"}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700">New Password</label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="font-mono"
+                />
+                <Button variant="outline" onClick={() => setNewPassword(generateRandomPassword())}>
+                  Generate
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <p className="text-sm text-amber-800">
+                <strong>Important:</strong> After resetting, share this password with the user via WhatsApp or call.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={copyPassword}>
+              Copy Password
+            </Button>
+            <Button onClick={handleResetPassword} disabled={isResettingPassword || !newPassword}>
+              {isResettingPassword ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                "Reset Password"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 };
