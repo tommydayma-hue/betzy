@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
-import { Phone, Lock, Eye, EyeOff } from "lucide-react";
+import { Phone, Lock, Eye, EyeOff, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { signIn, user, loading } = useAuth();
+  const { signIn, signOut, user, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [banInfo, setBanInfo] = useState<{ reason: string; banned_until: string | null } | null>(null);
   const [formData, setFormData] = useState({
     phone: "",
     password: "",
@@ -26,6 +28,34 @@ const Login = () => {
     return cleanPhone.length === 10;
   };
 
+  const checkBanStatus = async (userId: string): Promise<{ isBanned: boolean; reason?: string; bannedUntil?: string | null }> => {
+    const { data, error } = await supabase
+      .from("user_bans")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("banned_at", { ascending: false })
+      .limit(1);
+
+    if (error || !data || data.length === 0) {
+      return { isBanned: false };
+    }
+
+    const ban = data[0];
+    // Check if ban is still active (not expired)
+    if (ban.banned_until && new Date(ban.banned_until) < new Date()) {
+      return { isBanned: false };
+    }
+
+    return { isBanned: true, reason: ban.reason, bannedUntil: ban.banned_until };
+  };
+
+  const formatBanDuration = (bannedUntil: string | null) => {
+    if (!bannedUntil) return "permanently";
+    const until = new Date(bannedUntil);
+    return `until ${until.toLocaleDateString()} at ${until.toLocaleTimeString()}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -35,6 +65,7 @@ const Login = () => {
     }
 
     setIsLoading(true);
+    setBanInfo(null);
 
     const { error } = await signIn(formData.phone, formData.password);
     
@@ -46,6 +77,21 @@ const Login = () => {
       }
       setIsLoading(false);
       return;
+    }
+
+    // Get the user and check ban status
+    const { data: { user: loggedInUser } } = await supabase.auth.getUser();
+    
+    if (loggedInUser) {
+      const banStatus = await checkBanStatus(loggedInUser.id);
+      
+      if (banStatus.isBanned) {
+        // Sign the user out immediately
+        await signOut();
+        setBanInfo({ reason: banStatus.reason || "Violation of terms", banned_until: banStatus.bannedUntil || null });
+        setIsLoading(false);
+        return;
+      }
     }
     
     toast.success("Login successful! Welcome back.");
@@ -76,6 +122,27 @@ const Login = () => {
               <h1 className="text-2xl font-bold text-gray-900">Welcome Back</h1>
               <p className="text-gray-500 mt-1">Enter your credentials to access your account</p>
             </div>
+
+            {/* Ban Notice */}
+            {banInfo && (
+              <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex items-start gap-3">
+                  <Ban className="h-5 w-5 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-red-800">Account Suspended</p>
+                    <p className="text-sm text-red-700 mt-1">
+                      Your account has been suspended {formatBanDuration(banInfo.banned_until)}.
+                    </p>
+                    <p className="text-sm text-red-600 mt-2">
+                      <strong>Reason:</strong> {banInfo.reason}
+                    </p>
+                    <p className="text-xs text-red-500 mt-2">
+                      Contact support if you believe this is a mistake.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-5">
