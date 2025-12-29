@@ -1,8 +1,42 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
-import { Phone, ArrowLeft, MessageCircle, Headphones } from "lucide-react";
+import { Phone, ArrowLeft, MessageCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface SiteConfig {
+  whatsapp_link: string;
+}
 
 const ForgotPassword = () => {
+  const [whatsappLink, setWhatsappLink] = useState("https://wa.me/919876543210");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchWhatsappLink = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", "site_config")
+          .maybeSingle();
+
+        if (!error && data?.value) {
+          const config = data.value as unknown as SiteConfig;
+          if (config.whatsapp_link) {
+            setWhatsappLink(config.whatsapp_link);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching WhatsApp link:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWhatsappLink();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -31,34 +65,26 @@ const ForgotPassword = () => {
               <h3 className="text-sm font-medium text-gray-700">Contact Support:</h3>
               
               {/* WhatsApp */}
-              <a
-                href="https://wa.me/919876543210"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-4 p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
-              >
-                <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
-                  <MessageCircle className="h-6 w-6 text-white" />
+              {loading ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-green-500" />
                 </div>
-                <div>
-                  <p className="font-medium text-gray-900">WhatsApp Support</p>
-                  <p className="text-sm text-gray-500">Fastest response • Available 24/7</p>
-                </div>
-              </a>
-
-              {/* Support Page */}
-              <Link
-                to="/support"
-                className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors"
-              >
-                <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center">
-                  <Headphones className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Create Support Ticket</p>
-                  <p className="text-sm text-gray-500">Submit a password reset request</p>
-                </div>
-              </Link>
+              ) : (
+                <a
+                  href={whatsappLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
+                >
+                  <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
+                    <MessageCircle className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">WhatsApp Support</p>
+                    <p className="text-sm text-gray-500">Fastest response • Available 24/7</p>
+                  </div>
+                </a>
+              )}
             </div>
 
             {/* Instructions */}
