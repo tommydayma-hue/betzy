@@ -12,6 +12,20 @@ import { CheckCircle, XCircle, Eye, Clock, ArrowUpFromLine, Loader2, RefreshCw, 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+interface BankAccount {
+  id: string;
+  account_holder_name: string;
+  account_number: string;
+  bank_name: string | null;
+  ifsc_code: string | null;
+  account_type: string | null;
+  upi_id: string | null;
+  paytm_number: string | null;
+  google_pay_number: string | null;
+  phone_pay_number: string | null;
+  is_primary: boolean;
+}
+
 interface WithdrawalWithUser {
   id: string;
   user_id: string;
@@ -23,6 +37,7 @@ interface WithdrawalWithUser {
   screenshot_url: string | null;
   username: string | null;
   wallet_balance: number;
+  bank_accounts: BankAccount[];
 }
 
 const AdminWithdrawalsContent = () => {
@@ -61,12 +76,28 @@ const AdminWithdrawalsContent = () => {
 
       if (profilesError) throw profilesError;
 
+      // Fetch bank accounts for all users
+      const { data: bankAccounts, error: bankError } = await supabase
+        .from("bank_accounts")
+        .select("*")
+        .in("user_id", userIds.length > 0 ? userIds : ["none"]);
+
+      if (bankError) throw bankError;
+
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+      const bankAccountsMap = new Map<string, BankAccount[]>();
+      
+      bankAccounts?.forEach(account => {
+        const existing = bankAccountsMap.get(account.user_id) || [];
+        existing.push(account);
+        bankAccountsMap.set(account.user_id, existing);
+      });
 
       const withdrawalsWithUsers: WithdrawalWithUser[] = (transactions || []).map(tx => ({
         ...tx,
         username: profileMap.get(tx.user_id)?.username || null,
         wallet_balance: profileMap.get(tx.user_id)?.wallet_balance || 0,
+        bank_accounts: bankAccountsMap.get(tx.user_id) || [],
       }));
 
       setWithdrawals(withdrawalsWithUsers);
@@ -313,11 +344,92 @@ const AdminWithdrawalsContent = () => {
                 </div>
               </div>
 
-              <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
-                <p className="text-sm text-muted-foreground mb-1">UPI ID</p>
-                <p className="font-medium font-mono text-primary text-lg">
-                  {selectedWithdrawal.description?.replace("Withdrawal to ", "") || "Not provided"}
-                </p>
+              {/* Bank Account Details */}
+              <div className="p-4 bg-primary/10 rounded-lg border border-primary/20 space-y-3">
+                <p className="text-sm font-semibold text-primary mb-2">Bank & Payment Details</p>
+                
+                {selectedWithdrawal.bank_accounts.length > 0 ? (
+                  selectedWithdrawal.bank_accounts.map((account, idx) => (
+                    <div key={account.id} className={`space-y-2 ${idx > 0 ? 'pt-3 border-t border-border/50' : ''}`}>
+                      {account.is_primary && (
+                        <Badge className="bg-primary/20 text-primary text-xs mb-2">Primary Account</Badge>
+                      )}
+                      
+                      {/* Bank Details */}
+                      {(account.bank_name || account.account_number) && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {account.account_holder_name && (
+                            <div>
+                              <p className="text-xs text-muted-foreground">Account Holder</p>
+                              <p className="font-medium text-sm">{account.account_holder_name}</p>
+                            </div>
+                          )}
+                          {account.bank_name && (
+                            <div>
+                              <p className="text-xs text-muted-foreground">Bank Name</p>
+                              <p className="font-medium text-sm">{account.bank_name}</p>
+                            </div>
+                          )}
+                          {account.account_number && (
+                            <div>
+                              <p className="text-xs text-muted-foreground">Account Number</p>
+                              <p className="font-mono text-sm">{account.account_number}</p>
+                            </div>
+                          )}
+                          {account.ifsc_code && (
+                            <div>
+                              <p className="text-xs text-muted-foreground">IFSC Code</p>
+                              <p className="font-mono text-sm">{account.ifsc_code}</p>
+                            </div>
+                          )}
+                          {account.account_type && (
+                            <div>
+                              <p className="text-xs text-muted-foreground">Account Type</p>
+                              <p className="font-medium text-sm capitalize">{account.account_type}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* UPI & Digital Wallets */}
+                      <div className="grid grid-cols-2 gap-2 pt-2">
+                        {account.upi_id && (
+                          <div>
+                            <p className="text-xs text-muted-foreground">UPI ID</p>
+                            <p className="font-mono text-sm text-primary">{account.upi_id}</p>
+                          </div>
+                        )}
+                        {account.paytm_number && (
+                          <div>
+                            <p className="text-xs text-muted-foreground">Paytm</p>
+                            <p className="font-mono text-sm">{account.paytm_number}</p>
+                          </div>
+                        )}
+                        {account.google_pay_number && (
+                          <div>
+                            <p className="text-xs text-muted-foreground">Google Pay</p>
+                            <p className="font-mono text-sm">{account.google_pay_number}</p>
+                          </div>
+                        )}
+                        {account.phone_pay_number && (
+                          <div>
+                            <p className="text-xs text-muted-foreground">PhonePe</p>
+                            <p className="font-mono text-sm">{account.phone_pay_number}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-2">
+                    <p className="text-sm text-muted-foreground">No bank account details found</p>
+                    {selectedWithdrawal.description && (
+                      <p className="font-mono text-primary mt-1">
+                        {selectedWithdrawal.description.replace("Withdrawal to ", "")}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {selectedWithdrawal.status === "pending" && (
