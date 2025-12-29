@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, User, Loader2, RefreshCw, KeyRound, Phone, Mail, Clock, Eye } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, User, Loader2, RefreshCw, KeyRound, Phone, Mail, Clock, Eye, Ban, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -16,6 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+interface BanInfo {
+  reason: string;
+  banned_at: string;
+  banned_until: string | null;
+  ban_id: string;
+}
 
 interface UserWithDetails {
   id: string;
@@ -30,6 +39,8 @@ interface UserWithDetails {
   last_sign_in: string | null;
   email_confirmed: boolean;
   isAdmin: boolean;
+  isBanned: boolean;
+  banInfo: BanInfo | null;
 }
 
 const AdminUsersContent = () => {
@@ -107,6 +118,13 @@ const AdminUsersContent = () => {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState<UserWithDetails | null>(null);
 
+  // Ban dialog state
+  const [banDialogOpen, setBanDialogOpen] = useState(false);
+  const [banningUser, setBanningUser] = useState<UserWithDetails | null>(null);
+  const [banReason, setBanReason] = useState("");
+  const [banDuration, setBanDuration] = useState("permanent");
+  const [isBanning, setIsBanning] = useState(false);
+
   const generateRandomPassword = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     let password = "";
@@ -125,6 +143,13 @@ const AdminUsersContent = () => {
   const openDetailsDialog = (user: UserWithDetails) => {
     setViewingUser(user);
     setDetailsDialogOpen(true);
+  };
+
+  const openBanDialog = (user: UserWithDetails) => {
+    setBanningUser(user);
+    setBanReason("");
+    setBanDuration("permanent");
+    setBanDialogOpen(true);
   };
 
   const handleResetPassword = async () => {
@@ -148,6 +173,63 @@ const AdminUsersContent = () => {
     }
   };
 
+  const handleBanUser = async () => {
+    if (!banningUser || !banReason.trim()) {
+      toast.error("Please provide a reason for the ban");
+      return;
+    }
+
+    setIsBanning(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      let bannedUntil: string | null = null;
+      if (banDuration !== "permanent") {
+        const now = new Date();
+        const hours = parseInt(banDuration);
+        bannedUntil = new Date(now.getTime() + hours * 60 * 60 * 1000).toISOString();
+      }
+
+      const { error } = await supabase.from("user_bans").insert({
+        user_id: banningUser.user_id,
+        reason: banReason.trim(),
+        banned_until: bannedUntil,
+        banned_by: user.id,
+      });
+
+      if (error) throw error;
+
+      toast.success(`User ${banningUser.username || banningUser.phone} has been banned`);
+      setBanDialogOpen(false);
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Error banning user:", error);
+      toast.error(error.message || "Failed to ban user");
+    } finally {
+      setIsBanning(false);
+    }
+  };
+
+  const handleUnbanUser = async (user: UserWithDetails) => {
+    if (!user.banInfo?.ban_id) return;
+
+    try {
+      const { error } = await supabase
+        .from("user_bans")
+        .update({ is_active: false })
+        .eq("id", user.banInfo.ban_id);
+
+      if (error) throw error;
+
+      toast.success(`User ${user.username || user.phone} has been unbanned`);
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Error unbanning user:", error);
+      toast.error("Failed to unban user");
+    }
+  };
+
   const copyPassword = () => {
     navigator.clipboard.writeText(newPassword);
     toast.success("Password copied to clipboard!");
@@ -165,6 +247,18 @@ const AdminUsersContent = () => {
       user.phone?.includes(search) ||
       user.email?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const formatBanDuration = (bannedUntil: string | null) => {
+    if (!bannedUntil) return "Permanent";
+    const until = new Date(bannedUntil);
+    const now = new Date();
+    const diffMs = until.getTime() - now.getTime();
+    if (diffMs <= 0) return "Expired";
+    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    if (diffHours < 24) return `${diffHours}h remaining`;
+    const diffDays = Math.ceil(diffHours / 24);
+    return `${diffDays}d remaining`;
+  };
 
   if (isLoading || loading) {
     return (
@@ -210,7 +304,7 @@ const AdminUsersContent = () => {
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">User</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Balance</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Role</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Last Login</th>
                   <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                 </tr>
@@ -219,13 +313,13 @@ const AdminUsersContent = () => {
                 {filteredUsers.map((user, index) => (
                   <tr 
                     key={user.id} 
-                    className="border-b border-border/50 hover:bg-accent/30 transition-colors animate-fade-in"
+                    className={`border-b border-border/50 hover:bg-accent/30 transition-colors animate-fade-in ${user.isBanned ? 'bg-red-50/50' : ''}`}
                     style={{ animationDelay: `${index * 0.05}s` }}
                   >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
-                          <User className="h-5 w-5 text-primary" />
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${user.isBanned ? 'bg-red-100' : 'bg-gradient-to-br from-primary/30 to-primary/10'}`}>
+                          <User className={`h-5 w-5 ${user.isBanned ? 'text-red-500' : 'text-primary'}`} />
                         </div>
                         <div>
                           <p className="font-medium">{user.username || "No username"}</p>
@@ -247,11 +341,23 @@ const AdminUsersContent = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      {user.isAdmin ? (
-                        <Badge className="bg-primary/20 text-primary border border-primary/30">Admin</Badge>
-                      ) : (
-                        <Badge variant="secondary">User</Badge>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {user.isBanned ? (
+                          <Badge className="bg-red-100 text-red-700 border border-red-200">
+                            <Ban className="h-3 w-3 mr-1" />
+                            Banned
+                          </Badge>
+                        ) : user.isAdmin ? (
+                          <Badge className="bg-primary/20 text-primary border border-primary/30">Admin</Badge>
+                        ) : (
+                          <Badge variant="secondary">Active</Badge>
+                        )}
+                        {user.isBanned && user.banInfo && (
+                          <span className="text-xs text-red-600">
+                            {formatBanDuration(user.banInfo.banned_until)}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-sm text-muted-foreground">
                       {user.last_sign_in 
@@ -274,16 +380,27 @@ const AdminUsersContent = () => {
                         >
                           <KeyRound className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const newBalance = prompt("Enter new balance:", user.wallet_balance.toString());
-                            if (newBalance) updateBalance(user.user_id, parseFloat(newBalance));
-                          }}
-                        >
-                          Edit Balance
-                        </Button>
+                        {user.isBanned ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-green-600 border-green-300 hover:bg-green-50"
+                            onClick={() => handleUnbanUser(user)}
+                          >
+                            <ShieldCheck className="h-4 w-4 mr-1" />
+                            Unban
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 border-red-300 hover:bg-red-50"
+                            onClick={() => openBanDialog(user)}
+                          >
+                            <Ban className="h-4 w-4 mr-1" />
+                            Ban
+                          </Button>
+                        )}
                         <Button
                           variant={user.isAdmin ? "destructive" : "outline"}
                           size="sm"
@@ -321,13 +438,18 @@ const AdminUsersContent = () => {
             <div className="space-y-4 py-4">
               {/* User Avatar & Name */}
               <div className="flex items-center gap-4 p-4 bg-accent/30 rounded-lg">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
-                  <User className="h-8 w-8 text-primary" />
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${viewingUser.isBanned ? 'bg-red-100' : 'bg-gradient-to-br from-primary/30 to-primary/10'}`}>
+                  <User className={`h-8 w-8 ${viewingUser.isBanned ? 'text-red-500' : 'text-primary'}`} />
                 </div>
                 <div>
                   <p className="text-xl font-bold">{viewingUser.username || "No username"}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    {viewingUser.isAdmin ? (
+                    {viewingUser.isBanned ? (
+                      <Badge className="bg-red-100 text-red-700 border border-red-200">
+                        <Ban className="h-3 w-3 mr-1" />
+                        Banned
+                      </Badge>
+                    ) : viewingUser.isAdmin ? (
                       <Badge className="bg-primary/20 text-primary border border-primary/30">Admin</Badge>
                     ) : (
                       <Badge variant="secondary">User</Badge>
@@ -338,6 +460,20 @@ const AdminUsersContent = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Ban Info */}
+              {viewingUser.isBanned && viewingUser.banInfo && (
+                <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-sm font-medium text-red-800 mb-1">Ban Details</p>
+                  <p className="text-sm text-red-700"><strong>Reason:</strong> {viewingUser.banInfo.reason}</p>
+                  <p className="text-sm text-red-700">
+                    <strong>Duration:</strong> {formatBanDuration(viewingUser.banInfo.banned_until)}
+                  </p>
+                  <p className="text-xs text-red-600 mt-1">
+                    Banned on: {new Date(viewingUser.banInfo.banned_at).toLocaleString()}
+                  </p>
+                </div>
+              )}
 
               {/* Details Grid */}
               <div className="grid grid-cols-2 gap-4">
@@ -416,10 +552,36 @@ const AdminUsersContent = () => {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setDetailsDialogOpen(false)}>
               Close
             </Button>
+            {viewingUser && !viewingUser.isBanned && (
+              <Button 
+                variant="outline" 
+                className="text-red-600 border-red-300 hover:bg-red-50"
+                onClick={() => {
+                  setDetailsDialogOpen(false);
+                  openBanDialog(viewingUser);
+                }}
+              >
+                <Ban className="h-4 w-4 mr-2" />
+                Ban User
+              </Button>
+            )}
+            {viewingUser && viewingUser.isBanned && (
+              <Button 
+                variant="outline" 
+                className="text-green-600 border-green-300 hover:bg-green-50"
+                onClick={() => {
+                  handleUnbanUser(viewingUser);
+                  setDetailsDialogOpen(false);
+                }}
+              >
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Unban User
+              </Button>
+            )}
             {viewingUser && (
               <Button onClick={() => {
                 setDetailsDialogOpen(false);
@@ -429,6 +591,80 @@ const AdminUsersContent = () => {
                 Reset Password
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ban User Dialog */}
+      <Dialog open={banDialogOpen} onOpenChange={setBanDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Ban className="h-5 w-5" />
+              Ban User
+            </DialogTitle>
+            <DialogDescription>
+              Ban user: <strong>{banningUser?.username || banningUser?.phone || "Unknown"}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium text-foreground">Ban Duration</label>
+              <Select value={banDuration} onValueChange={setBanDuration}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Hour</SelectItem>
+                  <SelectItem value="6">6 Hours</SelectItem>
+                  <SelectItem value="24">24 Hours (1 Day)</SelectItem>
+                  <SelectItem value="72">72 Hours (3 Days)</SelectItem>
+                  <SelectItem value="168">1 Week</SelectItem>
+                  <SelectItem value="720">30 Days</SelectItem>
+                  <SelectItem value="permanent">Permanent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground">Reason for Ban</label>
+              <Textarea
+                placeholder="Explain why this user is being banned..."
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                className="mt-1 min-h-[100px]"
+              />
+            </div>
+            
+            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> This will prevent the user from logging in until the ban expires or is lifted.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setBanDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleBanUser} 
+              disabled={isBanning || !banReason.trim()}
+            >
+              {isBanning ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Banning...
+                </>
+              ) : (
+                <>
+                  <Ban className="h-4 w-4 mr-2" />
+                  Ban User
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

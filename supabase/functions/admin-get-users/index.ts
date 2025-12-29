@@ -68,11 +68,30 @@ Deno.serve(async (req) => {
       throw rolesError;
     }
 
+    // Fetch active bans
+    const { data: activeBans, error: bansError } = await supabaseAdmin
+      .from("user_bans")
+      .select("*")
+      .eq("is_active", true);
+    if (bansError) {
+      throw bansError;
+    }
+
     const adminUserIds = new Set(adminRoles?.map((r) => r.user_id) || []);
+
+    // Create a map of active bans by user_id
+    const bansByUserId = new Map();
+    for (const ban of activeBans || []) {
+      // Check if ban is still active (not expired)
+      if (!ban.banned_until || new Date(ban.banned_until) > new Date()) {
+        bansByUserId.set(ban.user_id, ban);
+      }
+    }
 
     // Combine auth users with profiles
     const usersWithDetails = authUsers.users.map((authUser) => {
       const profile = profiles?.find((p) => p.user_id === authUser.id);
+      const ban = bansByUserId.get(authUser.id);
       
       // Extract phone from email (format: 1234567890@royall11.app)
       const email = authUser.email || "";
@@ -93,6 +112,13 @@ Deno.serve(async (req) => {
         last_sign_in: authUser.last_sign_in_at,
         email_confirmed: authUser.email_confirmed_at != null,
         isAdmin: adminUserIds.has(authUser.id),
+        isBanned: !!ban,
+        banInfo: ban ? {
+          reason: ban.reason,
+          banned_at: ban.banned_at,
+          banned_until: ban.banned_until,
+          ban_id: ban.id,
+        } : null,
       };
     });
 

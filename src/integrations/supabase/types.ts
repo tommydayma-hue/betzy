@@ -464,6 +464,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_bans: {
+        Row: {
+          banned_at: string
+          banned_by: string
+          banned_until: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          reason: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          banned_at?: string
+          banned_by: string
+          banned_until?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          reason: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          banned_at?: string
+          banned_by?: string
+          banned_until?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          reason?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -522,6 +558,14 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_user_banned: {
+        Args: { p_user_id: string }
+        Returns: {
+          banned_until: string
+          is_banned: boolean
+          reason: string
+        }[]
+      }
       place_bet: {
         Args: { p_amount: number; p_bet_type: string; p_match_id: string }
         Returns: string
