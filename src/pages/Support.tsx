@@ -28,6 +28,7 @@ interface Reply {
 }
 
 const ISSUE_CATEGORIES = [
+  { value: "password_reset", label: "Password Reset Request" },
   { value: "withdrawal", label: "Withdrawal Issues" },
   { value: "deposit", label: "Deposit Issues" },
   { value: "wallet", label: "Wallet Issues" },
