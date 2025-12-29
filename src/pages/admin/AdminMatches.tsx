@@ -104,11 +104,14 @@ const AdminMatchesContent = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settleDialogOpen, setSettleDialogOpen] = useState(false);
+  const [changeWinnerDialogOpen, setChangeWinnerDialogOpen] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Partial<Match> | null>(null);
   const [settlingMatch, setSettlingMatch] = useState<Match | null>(null);
+  const [changingWinnerMatch, setChangingWinnerMatch] = useState<Match | null>(null);
   const [formData, setFormData] = useState<FormData>(emptyFormData);
   const [saving, setSaving] = useState(false);
   const [settling, setSettling] = useState(false);
+  const [changingWinner, setChangingWinner] = useState(false);
   const [uploadingA, setUploadingA] = useState(false);
   const [uploadingB, setUploadingB] = useState(false);
   const [uploadingInfo, setUploadingInfo] = useState(false);
@@ -119,6 +122,7 @@ const AdminMatchesContent = () => {
   const [viewingMatch, setViewingMatch] = useState<Match | null>(null);
   const [matchBets, setMatchBets] = useState<MatchBet[]>([]);
   const [loadingBets, setLoadingBets] = useState(false);
+  const [newWinner, setNewWinner] = useState<'team_a' | 'team_b' | ''>('');
   
   const fileInputARef = useRef<HTMLInputElement>(null);
   const fileInputBRef = useRef<HTMLInputElement>(null);
@@ -437,6 +441,116 @@ const AdminMatchesContent = () => {
     }
   };
 
+  const openChangeWinnerDialog = (match: Match) => {
+    setChangingWinnerMatch(match);
+    setNewWinner(match.toss_winner === 'team_a' ? 'team_b' : 'team_a');
+    setChangeWinnerDialogOpen(true);
+  };
+
+  const handleChangeWinner = async () => {
+    if (!changingWinnerMatch || !newWinner) return;
+
+    setChangingWinner(true);
+    try {
+      // Update the match toss_winner directly
+      const { error: updateError } = await supabase
+        .from("matches")
+        .update({ toss_winner: newWinner })
+        .eq("id", changingWinnerMatch.id);
+
+      if (updateError) throw updateError;
+
+      // Get all bets for this match that were settled
+      const { data: bets, error: betsError } = await supabase
+        .from("bets")
+        .select("*")
+        .eq("match_id", changingWinnerMatch.id)
+        .in("status", ["won", "lost"]);
+
+      if (betsError) throw betsError;
+
+      // Re-settle each bet based on new winner
+      for (const bet of bets || []) {
+        const wasWinner = bet.status === "won";
+        const isNowWinner = bet.bet_type === newWinner;
+
+        if (wasWinner && !isNowWinner) {
+          // Was winner, now loser - deduct the winnings
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("wallet_balance")
+            .eq("user_id", bet.user_id)
+            .single();
+
+          if (profile) {
+            await supabase
+              .from("profiles")
+              .update({ wallet_balance: Math.max(0, profile.wallet_balance - bet.potential_winnings) })
+              .eq("user_id", bet.user_id);
+          }
+
+          // Update bet status
+          await supabase
+            .from("bets")
+            .update({ status: "lost" })
+            .eq("id", bet.id);
+
+          // Record transaction for reversal
+          await supabase.from("transactions").insert({
+            user_id: bet.user_id,
+            type: "bet_placed",
+            amount: -bet.potential_winnings,
+            status: "completed",
+            reference_id: bet.id,
+            description: "Toss winner changed - winnings reversed",
+          });
+
+        } else if (!wasWinner && isNowWinner) {
+          // Was loser, now winner - credit the winnings
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("wallet_balance")
+            .eq("user_id", bet.user_id)
+            .single();
+
+          if (profile) {
+            await supabase
+              .from("profiles")
+              .update({ wallet_balance: profile.wallet_balance + bet.potential_winnings })
+              .eq("user_id", bet.user_id);
+          }
+
+          // Update bet status
+          await supabase
+            .from("bets")
+            .update({ status: "won" })
+            .eq("id", bet.id);
+
+          // Record transaction for new win
+          await supabase.from("transactions").insert({
+            user_id: bet.user_id,
+            type: "bet_won",
+            amount: bet.potential_winnings,
+            status: "completed",
+            reference_id: bet.id,
+            description: "Toss winner changed - winnings credited",
+          });
+        }
+      }
+
+      toast.success(`Toss winner changed to ${newWinner === 'team_a' ? changingWinnerMatch.team_a : changingWinnerMatch.team_b}. All bets have been re-settled.`);
+      setChangeWinnerDialogOpen(false);
+      setChangingWinnerMatch(null);
+      setNewWinner('');
+      fetchMatches();
+    } catch (error: any) {
+      console.error("Error changing winner:", error);
+      toast.error(error.message || "Failed to change toss winner");
+    } finally {
+      setChangingWinner(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this match?")) return;
 
@@ -557,11 +671,22 @@ const AdminMatchesContent = () => {
                     <td className="py-3 px-4">{getStatusBadge(match.status, match.toss_winner)}</td>
                     <td className="py-3 px-4">
                       {match.toss_winner ? (
-                        <div className="flex items-center gap-1 text-success">
-                          <Crown className="h-4 w-4" />
-                          <span className="text-sm font-medium">
-                            {match.toss_winner === 'team_a' ? match.team_a : match.team_b}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 text-success">
+                            <Crown className="h-4 w-4" />
+                            <span className="text-sm font-medium">
+                              {match.toss_winner === 'team_a' ? match.team_a : match.team_b}
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => openChangeWinnerDialog(match)}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Change
+                          </Button>
                         </div>
                       ) : match.status === 'live' ? (
                         <Button
@@ -1113,6 +1238,104 @@ const AdminMatchesContent = () => {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Winner Dialog */}
+      <Dialog open={changeWinnerDialogOpen} onOpenChange={setChangeWinnerDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-warning">
+              <Edit className="h-5 w-5" />
+              Change Toss Winner
+            </DialogTitle>
+            <DialogDescription>
+              This will reverse payouts for previous winners and credit new winners. Use with caution.
+            </DialogDescription>
+          </DialogHeader>
+
+          {changingWinnerMatch && (
+            <div className="space-y-4">
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
+                <p className="text-sm text-destructive font-medium mb-1">⚠️ Warning</p>
+                <p className="text-xs text-muted-foreground">
+                  Changing the winner will:
+                </p>
+                <ul className="text-xs text-muted-foreground list-disc list-inside mt-1 space-y-1">
+                  <li>Reverse winnings from previous winners (deduct from wallet)</li>
+                  <li>Credit new winners with their winnings</li>
+                  <li>Create transaction records for the adjustments</li>
+                </ul>
+              </div>
+
+              <div className="p-4 bg-accent/30 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Current Winner</p>
+                <div className="flex items-center gap-2 text-success">
+                  <Crown className="h-5 w-5" />
+                  <span className="font-bold">
+                    {changingWinnerMatch.toss_winner === 'team_a' 
+                      ? changingWinnerMatch.team_a 
+                      : changingWinnerMatch.team_b}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Select New Winner</Label>
+                <Select 
+                  value={newWinner} 
+                  onValueChange={(value: 'team_a' | 'team_b') => setNewWinner(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select new winner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="team_a">
+                      {changingWinnerMatch.team_a}
+                    </SelectItem>
+                    <SelectItem value="team_b">
+                      {changingWinnerMatch.team_b}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {newWinner && newWinner !== changingWinnerMatch.toss_winner && (
+                <div className="p-4 bg-warning/10 border border-warning/30 rounded-lg">
+                  <p className="text-sm text-warning font-medium">
+                    New Winner: {newWinner === 'team_a' ? changingWinnerMatch.team_a : changingWinnerMatch.team_b}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setChangeWinnerDialogOpen(false)}
+              disabled={changingWinner}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleChangeWinner}
+              disabled={changingWinner || !newWinner || newWinner === changingWinnerMatch?.toss_winner}
+            >
+              {changingWinner ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Changing...
+                </>
+              ) : (
+                <>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Confirm Change
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AdminLayout>
