@@ -10,6 +10,8 @@ import Index from "./pages/Index";
 // Lazy load all other pages for code splitting
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const CoinFlip = lazy(() => import("./pages/CoinFlip"));
 const Matches = lazy(() => import("./pages/Matches"));
@@ -51,6 +53,8 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/coinflip" element={<CoinFlip />} />
               <Route path="/matches" element={<Matches />} />
