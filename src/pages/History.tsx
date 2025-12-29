@@ -60,6 +60,7 @@ const History = () => {
   const [bets, setBets] = useState<Bet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("bets");
+  const [walletFilter, setWalletFilter] = useState<"all" | "credit" | "debit">("all");
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -121,7 +122,16 @@ const History = () => {
     tx.description?.toLowerCase().includes("coin flip") || 
     tx.description?.toLowerCase().includes("coinflip")
   );
-  const walletTx = transactions;
+  
+  const isCredit = (tx: Transaction) => 
+    tx.type === "deposit" || tx.type === "bet_won" || tx.type === "bonus" || tx.type === "bet_refunded";
+  
+  const walletTx = transactions.filter(tx => {
+    if (walletFilter === "all") return true;
+    if (walletFilter === "credit") return isCredit(tx);
+    if (walletFilter === "debit") return !isCredit(tx);
+    return true;
+  });
 
   const paginate = <T,>(items: T[], page: number): T[] => {
     const start = (page - 1) * itemsPerPage;
@@ -142,7 +152,7 @@ const History = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab]);
+  }, [activeTab, walletFilter]);
 
   if (loading || isLoading) {
     return (
@@ -284,20 +294,46 @@ const History = () => {
             {/* Wallet History */}
             {activeTab === "wallet" && (
               <>
+                {/* Credit/Debit Filter */}
+                <div className="flex gap-2 mb-3">
+                  {[
+                    { value: "all", label: "All" },
+                    { value: "credit", label: "Credit" },
+                    { value: "debit", label: "Debit" },
+                  ].map((filter) => (
+                    <button
+                      key={filter.value}
+                      onClick={() => setWalletFilter(filter.value as "all" | "credit" | "debit")}
+                      className={cn(
+                        "px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
+                        walletFilter === filter.value
+                          ? filter.value === "credit" 
+                            ? "bg-green-600 text-white"
+                            : filter.value === "debit"
+                            ? "bg-red-600 text-white"
+                            : "bg-gray-800 text-white"
+                          : "bg-white text-gray-600 border border-gray-200"
+                      )}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+
                 {walletTx.length === 0 ? (
-                  <EmptyState icon={Wallet} message="No transactions yet" />
+                  <EmptyState icon={Wallet} message={walletFilter === "all" ? "No transactions yet" : `No ${walletFilter} transactions`} />
                 ) : (
                   paginate(walletTx, currentPage).map((tx) => {
-                    const isCredit = tx.type === "deposit" || tx.type === "bet_won" || tx.type === "bonus";
+                    const isCreditTx = isCredit(tx);
                     return (
                       <div key={tx.id} className="bg-white rounded-xl p-4 border border-gray-100">
                         <div className="flex justify-between items-start">
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               "w-10 h-10 rounded-full flex items-center justify-center",
-                              isCredit ? "bg-green-50" : "bg-red-50"
+                              isCreditTx ? "bg-green-50" : "bg-red-50"
                             )}>
-                              {isCredit ? (
+                              {isCreditTx ? (
                                 <ArrowDownToLine className="w-5 h-5 text-green-600" />
                               ) : (
                                 <Wallet className="w-5 h-5 text-red-500" />
@@ -305,14 +341,14 @@ const History = () => {
                             </div>
                             <div>
                               <p className="font-medium text-gray-900 capitalize">
-                                {tx.type.replace("_", " ")}
+                                {tx.type.replace(/_/g, " ")}
                               </p>
                               <p className="text-xs text-gray-500">{formatDate(tx.created_at)}</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className={cn("font-semibold", isCredit ? "text-green-600" : "text-red-600")}>
-                              {isCredit ? "+" : "-"}₹{Math.abs(tx.amount)}
+                            <p className={cn("font-semibold", isCreditTx ? "text-green-600" : "text-red-600")}>
+                              {isCreditTx ? "+" : "-"}₹{Math.abs(tx.amount)}
                             </p>
                             <span className={cn("text-xs px-2 py-0.5 rounded-full", getStatusColor(tx.status))}>
                               {tx.status}
